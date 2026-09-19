@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight" data-shape="soft">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'">
+<title>Tool Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="theme-boot.js"></script>
+</head>
+<body>
+
+<div class="titlebar" id="titlebar">
+  <span class="titlebar-title">Tool Hub</span>
+  <div class="titlebar-btns">
+    <button class="tb-btn" id="tbMin" type="button">&#8211;</button>
+    <button class="tb-btn" id="tbMax" type="button">&#9723;</button>
+    <button class="tb-btn close" id="tbClose" type="button">&#10005;</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand">Tool Hub</div>
+  <div class="header-spacer"></div>
+  <button class="nav-btn settings-btn" id="settingsBtn" type="button" title="Appearance" aria-haspopup="true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l8 4.6v10.8L12 22l-8-4.6V6.6L12 2z"/><circle cx="12" cy="12" r="3.2"/></svg>
+  </button>
+  <div class="header-stripe"></div>
+</header>
+
+<div class="settings-panel" id="settingsPanel" role="dialog" aria-label="Appearance settings">
+  <div class="settings-title">Theme</div>
+  <div class="theme-grid" id="themeGrid">
+    <button class="theme-swatch" type="button" data-set-theme="midnight"><span class="theme-dots"><i style="background:#11141b"></i><i style="background:#5b8cff"></i><i style="background:#e7eaf0"></i></span><span class="theme-name">Midnight</span></button>
+    <button class="theme-swatch" type="button" data-set-theme="graphite"><span class="theme-dots"><i style="background:#131313"></i><i style="background:#ff8c42"></i><i style="background:#ededed"></i></span><span class="theme-name">Graphite</span></button>
+    <button class="theme-swatch" type="button" data-set-theme="nord"><span class="theme-dots"><i style="background:#2a313c"></i><i style="background:#88c0d0"></i><i style="background:#e5e9f0"></i></span><span class="theme-name">Nord</span></button>
+    <button class="theme-swatch" type="button" data-set-theme="vector"><span class="theme-dots"><i style="background:#0a0a0d"></i><i style="background:#7b2fff"></i><i style="background:#2fe4ff"></i></span><span class="theme-name">Vector</span></button>
+    <button class="theme-swatch" type="button" data-set-theme="forest"><span class="theme-dots"><i style="background:#101a17"></i><i style="background:#3ecf8e"></i><i style="background:#e3ece8"></i></span><span class="theme-name">Forest</span></button>
+    <button class="theme-swatch" type="button" data-set-theme="daylight"><span class="theme-dots"><i style="background:#fff"></i><i style="background:#3b6fe0"></i><i style="background:#161a21"></i></span><span class="theme-name">Daylight</span></button>
+  </div>
+  <div class="settings-title">Shape</div>
+  <div class="shape-grid" id="shapeGrid">
+    <button class="settings-mode-btn" type="button" data-set-shape="soft">Rounded</button>
+    <button class="settings-mode-btn" type="button" data-set-shape="sharp">Square</button>
+    <button class="settings-mode-btn" type="button" data-set-shape="angular">Angular</button>
+  </div>
+  <div class="settings-title">Tools</div>
+  <button class="btn btn-sm" id="libraryBtn" type="button">Open Tool Library</button>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="content" id="content"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="ui.js"></script>
+<script src="views/renamer.js"></script>
+<script src="views/cleanup.js"></script>
+<script src="views/files.js"></script>
+<script src="views/system.js"></script>
+<script src="views/media.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
