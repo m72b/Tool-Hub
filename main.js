@@ -4,21 +4,6 @@ const fs = require('fs');
 const { createStore } = require('./src/core/store');
 const { createHost } = require('./src/core/host');
 
-<<<<<<< Updated upstream
-// Keep a global reference to prevent garbage collection
-let mainWindow;
-
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 780,
-    minWidth: 900,
-    minHeight: 600,
-    frame: process.platform === 'darwin', // native frame on macOS, custom on Windows/Linux
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    backgroundColor: '#000000',
-    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
-=======
 const RENDERER = path.join(__dirname, 'src', 'renderer', 'index.html');
 const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
 const IMAGE_MAX = 8 * 1024 * 1024;
@@ -37,7 +22,6 @@ function createWindow() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     backgroundColor: '#0b0d12',
     icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
->>>>>>> Stashed changes
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -48,37 +32,19 @@ function createWindow() {
     show: false, // show after ready-to-show for a clean launch
   });
 
-<<<<<<< Updated upstream
-  mainWindow.loadFile('index.html');
-
-  // Show once fully rendered
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-=======
   mainWindow.loadFile(RENDERER);
   mainWindow.once('ready-to-show', () => mainWindow.show());
->>>>>>> Stashed changes
 
   // Open external links in the system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-<<<<<<< Updated upstream
-=======
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (url !== mainWindow.webContents.getURL()) event.preventDefault();
   });
 
-  if (process.platform === 'win32') {
-    mainWindow.on('maximize', () => {
-      const display = screen.getDisplayMatching(mainWindow.getBounds());
-      mainWindow.setBounds(display.workArea);
-    });
-  }
->>>>>>> Stashed changes
 }
 
 function requireWindow() {
@@ -109,15 +75,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-<<<<<<< Updated upstream
-// ─── IPC Handlers ─────────────────────────────────────────────────────────────
-
-// Window controls (for custom titlebar on Windows/Linux)
-ipcMain.on('win-minimize', () => mainWindow?.minimize());
-ipcMain.on('win-maximize', () => {
-  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
-  else mainWindow?.maximize();
-=======
 ipcMain.on('shell:window', (_event, action) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (action === 'minimize') mainWindow.minimize();
@@ -125,17 +82,10 @@ ipcMain.on('shell:window', (_event, action) => {
     if (mainWindow.isMaximized()) mainWindow.unmaximize();
     else mainWindow.maximize();
   } else if (action === 'close') mainWindow.close();
->>>>>>> Stashed changes
 });
 
-<<<<<<< Updated upstream
-// Folder picker
-ipcMain.handle('pick-folder', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-=======
 ipcMain.handle('shell:pickFolder', async (_event, title) => {
   const result = await dialog.showOpenDialog(requireWindow(), {
->>>>>>> Stashed changes
     properties: ['openDirectory', 'createDirectory'],
     title: typeof title === 'string' && title ? title.slice(0, 120) : 'Choose a folder',
   });
@@ -143,31 +93,6 @@ ipcMain.handle('shell:pickFolder', async (_event, title) => {
   return result.filePaths[0];
 });
 
-<<<<<<< Updated upstream
-// Save renamed files to disk
-ipcMain.handle('save-files', async (_event, { files, folderPath }) => {
-  let success = 0;
-  let failed = 0;
-
-  for (const file of files) {
-    try {
-      const destPath = path.join(folderPath, file.newName);
-      // Decode base64 → buffer → write
-      const buffer = Buffer.from(file.data, 'base64');
-      fs.writeFileSync(destPath, buffer);
-      success++;
-    } catch (err) {
-      console.error('Failed to save file:', file.newName, err);
-      failed++;
-    }
-  }
-
-  return { success, failed };
-});
-
-// Expose platform string to renderer
-ipcMain.handle('get-platform', () => process.platform);
-=======
 ipcMain.handle('shell:pickFiles', async () => {
   const result = await dialog.showOpenDialog(requireWindow(), {
     properties: ['openFile', 'multiSelections'],
@@ -239,4 +164,3 @@ ipcMain.handle('tool:invoke', async (_event, payload) => {
 });
 
 ipcMain.handle('shell:platform', () => process.platform);
->>>>>>> Stashed changes

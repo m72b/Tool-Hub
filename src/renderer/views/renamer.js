@@ -52,17 +52,86 @@
     return out.replace(/[\\/:*?"<>|]/g, '_');
   }
 
+  const CAPTURE_NOISE_WORDS = ['screenshot', 'screenshots', 'clip', 'clips', 'capture', 'captures', 'recording', 'recordings', 'gameplay', 'highlight', 'highlights', 'video', 'trim', 'edit', 'edited', 'final', 'export'];
+  const DATE_LIKE = /\d{4}[.\-_ ]\d{1,2}[.\-_ ]\d{1,2}(?:[.\-_ ]\d{1,2}[.\-_ ]\d{1,2}(?:[.\-_ ]\d{1,2})?)?|\d{1,2}[.\-_ ]\d{1,2}[.\-_ ]\d{4}/;
+
+  function detectGameName(name) {
+    const { base } = baseAndExt(name);
+    let candidate = base;
+
+    const match = candidate.match(DATE_LIKE);
+    if (match && match.index > 0) {
+      candidate = candidate.slice(0, match.index);
+    }
+
+    candidate = candidate.replace(/[-_ .]+$/, '');
+    candidate = candidate.replace(/\s*\(\d+\)\s*$/, '');
+    candidate = candidate.replace(/[-_ ]?[0-9a-f]{8,}$/i, '');
+    candidate = candidate.replace(/[-_]+/g, ' ');
+
+    const noisePattern = new RegExp(`\\b(${CAPTURE_NOISE_WORDS.join('|')})\\b`, 'gi');
+    candidate = candidate.replace(noisePattern, ' ');
+
+    candidate = candidate.replace(/\s+/g, ' ').trim();
+    return candidate.length > 0 ? candidate : base;
+  }
+
+  function parseRemoveTerms(raw) {
+    return String(raw || '')
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  function stripTerms(text, terms, caseInsensitive) {
+    let out = text;
+    for (const term of terms) {
+      if (!term) continue;
+      if (caseInsensitive) {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        out = out.replace(new RegExp(escaped, 'gi'), '');
+      } else {
+        out = out.split(term).join('');
+      }
+    }
+    return out.replace(/[-_ ]{2,}/g, ' ').replace(/^[-_ .]+|[-_ .]+$/g, '').trim();
+  }
+
+  function dedupeNames(list) {
+    const seen = new Map();
+    for (const file of list) {
+      const { base, ext } = baseAndExt(file.newName);
+      const parent = String(file.relativePath || file.name).replace(/[^\\/]+$/, '');
+      let candidate = file.newName;
+      let key = `${parent}\0${candidate.toLowerCase()}`;
+      let n = 1;
+      while (seen.has(key)) {
+        n = seen.get(key) + 1;
+        seen.set(key, n);
+        candidate = ext ? `${base} (${n}).${ext}` : `${base} (${n})`;
+        key = `${parent}\0${candidate.toLowerCase()}`;
+      }
+      if (!seen.has(key)) seen.set(key, n);
+      file.newName = candidate;
+    }
+    return list;
+  }
+
   Hub.registerView('renamer', {
     render(api) {
       const container = h('div', { class: 'tool' });
       const state = {
         folder: '',
+        recursive: false,
         files: [],
         format: '{original}',
         overrides: readJson(OVERRIDE_KEY, {}),
         presets: readJson(PRESET_KEY, []),
         sort: 'name',
-        rule: { enabled: false, find: '', replace: '' },
+        mode: 'template',
+        findReplace: { find: '', replace: '' },
+        removeText: '',
+        removeCaseInsensitive: true,
       };
 
       const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
@@ -78,23 +147,35 @@
         return list;
       }
 
+      function computeBase(file, index) {
+        if (state.mode === 'game') {
+          return detectGameName(file.name);
+        }
+        if (state.mode === 'findReplace') {
+          const find = state.findReplace.find;
+          if (find && file.name.toLowerCase().includes(find.toLowerCase())) {
+            const replacement = state.findReplace.replace;
+            return replacement ? baseAndExt(replacement).base || replacement : baseAndExt(file.name).base;
+          }
+          return baseAndExt(file.name).base;
+        }
+        return baseAndExt(applyTemplate(state.format, file, index, state.overrides)).base;
+      }
+
       function computeNames() {
         const list = sortedFiles();
+        const terms = parseRemoveTerms(state.removeText);
         list.forEach((file, index) => {
-          if (state.rule.enabled && state.rule.find) {
-            if (file.name.toLowerCase().includes(state.rule.find.toLowerCase())) {
-              const { ext } = baseAndExt(file.name);
-              const replacement = state.rule.replace || file.name;
-              file.newName = ext && !replacement.toLowerCase().endsWith(`.${ext.toLowerCase()}`)
-                ? `${replacement}.${ext}`
-                : replacement;
-            } else {
-              file.newName = file.name;
-            }
-            return;
+          const { ext } = baseAndExt(file.name);
+          let base = computeBase(file, index);
+          if (terms.length > 0) {
+            const cleaned = stripTerms(base, terms, state.removeCaseInsensitive);
+            if (cleaned) base = cleaned;
           }
-          file.newName = applyTemplate(state.format, file, index, state.overrides);
+          const newName = ext ? `${base}.${ext}` : base;
+          file.newName = newName.replace(/[\\/:*?"<>|]/g, '_');
         });
+        dedupeNames(list);
         return list;
       }
 
@@ -106,7 +187,7 @@
       }
 
       async function loadFolder(folder) {
-        const res = await api.invoke('readFolder', { folder });
+        const res = await api.invoke('readFolder', { folder, recursive: state.recursive });
         if (!res.ok) {
           api.toast(res.error, 'error');
           return;
@@ -119,7 +200,7 @@
 
       async function saveOne(file, inputEl) {
         if (file.newName === file.name) return true;
-        const res = await api.invoke('rename', { folder: state.folder, oldName: file.name, newName: file.newName });
+        const res = await api.invoke('rename', { folder: state.folder, oldName: file.name, relativePath: file.relativePath, newName: file.newName });
         if (!res.ok) {
           file.status = 'error';
           api.toast(`${file.name}: ${res.error}`, 'error');
@@ -127,6 +208,7 @@
           return false;
         }
         file.name = file.newName;
+        file.relativePath = file.relativePath.replace(/[^\\/]+$/, file.newName);
         file.status = 'saved';
         if (inputEl) {
           inputEl.classList.remove('bad');
@@ -170,9 +252,18 @@
         const revert = h('button', {
           class: 'btn btn-sm', type: 'button', text: 'Revert',
           onclick: () => {
+            state.mode = 'template';
             state.format = '{original}';
             formatInput.value = state.format;
-            state.rule.enabled = false;
+            state.findReplace = { find: '', replace: '' };
+            ruleFind.value = '';
+            ruleReplace.value = '';
+            state.removeText = '';
+            removeTextarea.value = '';
+            state.removeCaseInsensitive = true;
+            removeCI.checked = true;
+            renderModeButtons();
+            renderModeBody();
             drawList();
             updatePreview();
           },
@@ -288,10 +379,8 @@
       })));
 
       const applyBtn = h('button', {
-        class: 'btn btn-accent', type: 'button', text: 'Apply template',
+        class: 'btn btn-accent', type: 'button', text: 'Apply to list',
         onclick: () => {
-          state.rule.enabled = false;
-          ruleToggle.checked = false;
           drawList();
           updatePreview();
         },
@@ -307,6 +396,10 @@
           loadFolder(chosen);
         },
       });
+      const includeSubfolders = h('label', { class: 'field field-inline' }, [
+        h('input', { type: 'checkbox', checked: false, onchange: e => { state.recursive = e.target.checked; if (state.folder) loadFolder(state.folder); } }),
+        h('span', { text: 'Include subfolders' }),
+      ]);
 
       const overrideList = h('div', { class: 'override-list' });
       function drawOverrides() {
@@ -395,26 +488,66 @@
         },
       });
 
-      const ruleFind = h('input', { class: 'input', type: 'text', placeholder: 'Find in filename' });
-      const ruleReplace = h('input', { class: 'input', type: 'text', placeholder: 'Rename matches to' });
-      const ruleToggle = h('input', {
-        type: 'checkbox',
-        onchange: e => {
-          state.rule.enabled = e.target.checked;
-          state.rule.find = ruleFind.value;
-          state.rule.replace = ruleReplace.value;
-          drawList();
-          updatePreview();
-        },
+      const ruleFind = h('input', {
+        class: 'input', type: 'text', placeholder: 'Find in filename',
+        oninput: e => { state.findReplace.find = e.target.value; updatePreview(); },
       });
-      ruleFind.oninput = e => {
-        state.rule.find = e.target.value;
-        if (state.rule.enabled) { drawList(); updatePreview(); }
-      };
-      ruleReplace.oninput = e => {
-        state.rule.replace = e.target.value;
-        if (state.rule.enabled) { drawList(); updatePreview(); }
-      };
+      const ruleReplace = h('input', {
+        class: 'input', type: 'text', placeholder: 'Rename matches to',
+        oninput: e => { state.findReplace.replace = e.target.value; updatePreview(); },
+      });
+
+      const removeTextarea = h('textarea', {
+        class: 'input mono', rows: '3', spellcheck: 'false',
+        placeholder: '1440p\n(1)\nfinal',
+        oninput: e => { state.removeText = e.target.value; updatePreview(); },
+      });
+      const removeCI = h('input', {
+        type: 'checkbox', checked: true,
+        onchange: e => { state.removeCaseInsensitive = e.target.checked; updatePreview(); },
+      });
+
+      const modeButtonsWrap = h('div', { class: 'shape-grid' });
+      const modeBody = h('div', { class: 'mode-body' });
+      const MODE_LABELS = { template: 'Template', findReplace: 'Find & Replace', game: 'Detect Game Name' };
+
+      function renderModeButtons() {
+        clear(modeButtonsWrap);
+        for (const m of ['template', 'findReplace', 'game']) {
+          modeButtonsWrap.appendChild(h('button', {
+            class: `settings-mode-btn${state.mode === m ? ' active' : ''}`,
+            type: 'button',
+            text: MODE_LABELS[m],
+            onclick: () => {
+              state.mode = m;
+              renderModeButtons();
+              renderModeBody();
+              drawList();
+              updatePreview();
+            },
+          }));
+        }
+      }
+
+      function renderModeBody() {
+        clear(modeBody);
+        if (state.mode === 'template') {
+          modeBody.appendChild(h('div', { class: 'field field-wide' }, [
+            h('label', { class: 'field-label', text: 'Filename template' }),
+            formatInput,
+            tokenChips,
+          ]));
+        } else if (state.mode === 'findReplace') {
+          modeBody.appendChild(h('div', { class: 'field-row' }, [ruleFind, ruleReplace]));
+          modeBody.appendChild(h('span', { class: 'field-hint', text: 'Files that don\u2019t contain the search text keep their current name.' }));
+        } else {
+          modeBody.appendChild(statusNote(
+            'Strips dates, timestamps and capture-software words from the filename, leaving what comes before them \u2014 for example "ArcRaiders-2026.09.24-20.15.32" becomes "ArcRaiders". Works best with ShadowPlay, Xbox Game Bar and similar tools that put the game name first. It reads the filename structure only, not a game database, so check the results before saving.',
+            'info'
+          ));
+        }
+        modeBody.appendChild(previewLine);
+      }
 
       container.appendChild(h('div', { class: 'tool-head' }, [
         h('h1', { class: 'tool-title', text: 'Batch Renamer' }),
@@ -424,15 +557,14 @@
         h('div', { class: 'controls-fields' }, [
           h('div', { class: 'field field-wide' }, [
             h('label', { class: 'field-label', text: 'Folder' }),
-            h('div', { class: 'field-row' }, [pick, folderLabel]),
-          ]),
-          h('div', { class: 'field field-wide' }, [
-            h('label', { class: 'field-label', text: 'Filename template' }),
-            formatInput,
-            tokenChips,
-            previewLine,
+            h('div', { class: 'field-row' }, [pick, folderLabel, includeSubfolders]),
           ]),
         ]),
+        h('div', { class: 'field field-wide' }, [
+          h('label', { class: 'field-label', text: 'Naming mode' }),
+          modeButtonsWrap,
+        ]),
+        modeBody,
         h('div', { class: 'controls-actions' }, [applyBtn]),
       ]));
 
@@ -446,11 +578,11 @@
           h('div', { class: 'group-body' }, [presetList, h('div', { class: 'field-row' }, [presetName, savePreset])]),
         ]),
         h('div', { class: 'group' }, [
-          h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Filename rule' })]),
+          h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Remove text' })]),
           h('div', { class: 'group-body' }, [
-            h('label', { class: 'field field-inline' }, [ruleToggle, h('span', { text: 'Rename only files containing a phrase' })]),
-            ruleFind,
-            ruleReplace,
+            h('span', { class: 'field-hint', text: 'One phrase per line. Removed from every filename after the naming mode above runs.' }),
+            removeTextarea,
+            h('label', { class: 'field field-inline' }, [removeCI, h('span', { text: 'Case-insensitive' })]),
           ]),
         ]),
       ]));
@@ -458,6 +590,8 @@
       container.appendChild(results);
       drawOverrides();
       drawPresets();
+      renderModeButtons();
+      renderModeBody();
       updatePreview();
       results.appendChild(empty('Choose a folder to begin.'));
       return container;
@@ -468,17 +602,72 @@
     render(api) {
       const container = h('div', { class: 'tool' });
       const RULES_KEY = 'toolhub_org_rules_v1';
+      const HISTORY_KEY = 'toolhub_org_history_v1';
       const state = {
         folder: '',
+        recursive: false,
         rules: readJson(RULES_KEY, []),
+        history: readJson(HISTORY_KEY, []),
       };
 
       const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
       const rulesBox = h('div', { class: 'rule-list' });
       const results = h('div', { class: 'results' });
+      const historyBox = h('div', { class: 'log' });
 
       function saveRules() {
         writeJson(RULES_KEY, state.rules);
+      }
+
+      function saveHistory() {
+        writeJson(HISTORY_KEY, state.history);
+      }
+
+      function drawHistory() {
+        clear(historyBox);
+        if (state.history.length === 0) {
+          historyBox.appendChild(empty('No files moved yet.'));
+          return;
+        }
+        for (const batch of state.history) {
+          const reversed = batch.moves.filter(move => move.reversed).length;
+          const card = h('div', { class: 'history-entry' }, [
+            h('div', { class: 'stat-row' }, [
+              stat('Moved', fmtNumber(batch.moves.length)),
+              stat('Reversed', fmtNumber(reversed)),
+              h('button', {
+                class: 'btn btn-sm', type: 'button',
+                text: reversed === batch.moves.length ? 'Reversed' : 'Reverse moves',
+                disabled: reversed === batch.moves.length,
+                onclick: async () => {
+                  let undone = 0;
+                  let failed = 0;
+                  for (const move of [...batch.moves].reverse()) {
+                    if (move.reversed) continue;
+                    const res = await api.invoke('reverseMove', {
+                      folder: batch.folder, fromPath: move.to, toPath: move.from,
+                    });
+                    if (res.ok) {
+                      move.reversed = true;
+                      delete move.error;
+                      undone++;
+                    } else {
+                      failed++;
+                      move.error = res.error;
+                    }
+                  }
+                  saveHistory();
+                  drawHistory();
+                  api.toast(`Reversed ${undone} file(s)${failed ? `; ${failed} failed` : ''}`, failed ? 'error' : 'ok');
+                },
+              }),
+            ]),
+            h('div', { class: 'muted', text: new Date(batch.createdAt).toLocaleString() }),
+            h('div', { class: 'log' }, batch.moves.map(move =>
+              h('div', { class: `log-line${move.reversed ? ' muted' : ''}`, text: `${move.from} → ${move.to}${move.reversed ? ' (reversed)' : ''}${move.error ? ` — ${move.error}` : ''}` }))),
+          ]);
+          historyBox.appendChild(card);
+        }
       }
 
       function matchesPattern(name, pattern) {
@@ -579,28 +768,32 @@
           api.toast('Add at least one rule with a destination', 'error');
           return;
         }
-        const res = await api.invoke('readFolder', { folder: state.folder });
+        const res = await api.invoke('readFolder', { folder: state.folder, recursive: state.recursive });
         if (!res.ok) {
           api.toast(res.error, 'error');
           return;
         }
         const lines = [];
+        const successfulMoves = [];
         let moved = 0;
         let failed = 0;
         for (const file of res.data.files) {
           const rule = valid.find(r => ruleMatches(r, file));
           if (!rule) continue;
+          const relativeParts = String(file.relativePath || file.name).split(/[\\/]/);
+          if (relativeParts.length === 2 && relativeParts[0].toLowerCase() === rule.dest.trim().toLowerCase()) continue;
           if (dryRun) {
-            lines.push({ ok: true, text: `Would move ${file.name} → ${rule.dest}/` });
+            lines.push({ ok: true, text: `Would move ${file.relativePath || file.name} → ${rule.dest}/` });
             moved++;
             continue;
           }
-          const move = await api.invoke('move', { folder: state.folder, fileName: file.name, destFolder: rule.dest.trim() });
+          const move = await api.invoke('move', { folder: state.folder, fileName: file.name, relativePath: file.relativePath, destFolder: rule.dest.trim() });
           if (move.ok) {
-            lines.push({ ok: true, text: `Moved ${file.name} → ${rule.dest}/` });
+            lines.push({ ok: true, text: `Moved ${move.data.from} → ${move.data.to}` });
+            successfulMoves.push({ from: move.data.from, to: move.data.to, reversed: false });
             moved++;
           } else {
-            lines.push({ ok: false, text: `${file.name}: ${move.error}` });
+            lines.push({ ok: false, text: `${file.relativePath || file.name}: ${move.error}` });
             failed++;
           }
         }
@@ -615,6 +808,12 @@
         }
         results.appendChild(h('div', { class: 'log' }, lines.slice(0, 500).map(line =>
           h('div', { class: `log-line${line.ok ? '' : ' log-err'}`, text: line.text }))));
+        if (!dryRun && successfulMoves.length > 0) {
+          state.history.unshift({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, folder: state.folder, createdAt: Date.now(), moves: successfulMoves });
+          state.history = state.history.slice(0, 50);
+          saveHistory();
+          drawHistory();
+        }
       }
 
       const pick = h('button', {
@@ -627,6 +826,10 @@
           folderLabel.classList.remove('empty');
         },
       });
+      const includeSubfolders = h('label', { class: 'field field-inline' }, [
+        h('input', { type: 'checkbox', checked: false, onchange: e => { state.recursive = e.target.checked; } }),
+        h('span', { text: 'Include subfolders' }),
+      ]);
 
       container.appendChild(h('div', { class: 'tool-head' }, [
         h('h1', { class: 'tool-title', text: 'File Organizer' }),
@@ -636,7 +839,7 @@
         h('div', { class: 'controls-fields' }, [
           h('div', { class: 'field field-wide' }, [
             h('label', { class: 'field-label', text: 'Source folder' }),
-            h('div', { class: 'field-row' }, [pick, folderLabel]),
+            h('div', { class: 'field-row' }, [pick, folderLabel, includeSubfolders]),
           ]),
         ]),
         h('div', { class: 'controls-actions' }, [
@@ -658,10 +861,17 @@
         ]),
         h('div', { class: 'group-body' }, [rulesBox]),
       ]));
+      container.appendChild(h('div', { class: 'group' }, [
+        h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Move history' })]),
+        h('div', { class: 'group-body' }, [historyBox]),
+      ]));
       container.appendChild(results);
       drawRules();
+      drawHistory();
       results.appendChild(empty('Add rules, then preview before organizing.'));
       return container;
     },
   });
+
+  window.RenamerLogic = { baseAndExt, applyTemplate, detectGameName, stripTerms, parseRemoveTerms, dedupeNames };
 })();

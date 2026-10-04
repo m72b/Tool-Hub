@@ -1,97 +1,3 @@
-<<<<<<< Updated upstream
-#  m72b File Formatter
-
-A simple desktop application that automatically organizes files into folders based on their file type.
-
-## Features
-
-- Organize files with one click
-- Sort images, videos, documents, archives, and more
-- Create folders automatically
-- Fast processing
-- Clean and simple interface
-
-## Supported File Types
-
-| Category | Extensions |
-|-----------|------------|
-| Images | .png, .jpg, .jpeg, .gif, .webp |
-| Videos | .mp4, .mov, .avi, .mkv |
-| Documents | .pdf, .docx, .txt, .pptx |
-| Archives | .zip, .rar, .7z |
-| Audio | .mp3, .wav, .flac |
-
-## How It Works
-
-Before:
-
-Downloads/
-├── cat.png
-├── report.pdf
-├── song.mp3
-├── movie.mp4
-
-After:
-
-Downloads/
-├── Images/
-│   └── cat.png
-├── Documents/
-│   └── report.pdf
-├── Audio/
-│   └── song.mp3
-└── Videos/
-    └── movie.mp4
-
-## Installation
-
-Download the latest release from the Releases section.
-
-## Usage
-
-1. Launch the application
-2. Select a folder
-3. Click Format
-4. Done!
-
-## Planned Features
-
-- Undo functionality
-- Custom file rules
-- Duplicate file detection
-- Empty folder cleanup
-- Dark mode
-- Drag & drop support
-- File preview
-
-## Roadmap
-
-### Version 1.0
-- Basic file sorting
-- Folder creation
-- Modern UI
-
-in the feature 
-
-### Version 1.1 
-- Undo feature
-- Custom categories
-- Settings page
-
-### Version 1.2
-- Duplicate finder
-- Recursive folder scanning
-- Performance improvements
-
-### Version 2.0
-- Plugin system
-- Advanced automation rules
-- Scheduled formatting
-
-## Contributing
-
-Contributions, bug reports, and feature suggestions are welcome.
-=======
 # m72b Tool Hub
 
 A modular Electron desktop application containing 17 file, cleanup and system tools. On first launch you choose which tools to install; uninstalled tools are never loaded into memory and register no IPC handlers.
@@ -142,13 +48,9 @@ Tools are enabled and disabled locally rather than fetched from a server, becaus
 **Media** - Image Converter, Image Resizer
 
 Batch Renamer and File Organizer are core tools and are always installed. Installed Apps Manager, Startup Manager and Drive Health are Windows-only and are hidden on other platforms.
->>>>>>> Stashed changes
 
 ## Security model
 
-<<<<<<< Updated upstream
-MIT License
-=======
 - No user input is ever interpolated into a shell string. `safe.run` uses `execFile` with `shell: false` and an argument array.
 - PowerShell receives user paths through environment variables or temp list files, never through string concatenation.
 - Hostnames are validated against a strict pattern before reaching argv, so ping and traceroute cannot be used for command injection.
@@ -165,4 +67,3 @@ No runtime dependencies. Every tool uses Node builtins only. Image encoding runs
 ## Testing
 
 `npm test` runs six suites covering path traversal and command-injection defences, the filesystem walker, install-state persistence, every tool backend, view registration for all 17 tools, and headless execution of every view's result-rendering path.
->>>>>>> Stashed changes
