@@ -4,7 +4,7 @@
 
   const PRESET_KEY = 'toolhub_presets_v1';
   const OVERRIDE_KEY = 'toolhub_overrides_v1';
-  const BUILTIN_TOKENS = ['{TrackNumber}', '{TrackName}', '{Artist}', '{Album}', '{Year}', '{ext}', '{original}', '{UPPER}', '{lower}', '{n}'];
+  const BUILTIN_TOKENS = ['{TrackNumber}', '{TrackName}', '{Artist}', '{Album}', '{Year}', '{ext}', '{original}', '{UPPER}', '{lower}', '{TitleCase}', '{SentenceCase}', '{n}'];
 
   function readJson(key, fallback) {
     try {
@@ -42,6 +42,8 @@
       '{original}': base,
       '{UPPER}': base.toUpperCase(),
       '{lower}': base.toLowerCase(),
+      '{TitleCase}': base.split(/(\s+)/).map(word => word.trim() ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word).join(''),
+      '{SentenceCase}': base.toLowerCase().replace(/[a-z\u00c0-\u024f]/i, char => char.toUpperCase()),
       '{n}': String(index + 1).padStart(2, '0'),
     };
     let out = format;
@@ -130,6 +132,7 @@
         folder: '',
         recursive: false,
         truncated: false,
+        history: readJson('toolhub_rename_history_v1', []),
         files: [],
         format: '{original}',
         overrides: readJson(OVERRIDE_KEY, {}),
@@ -137,12 +140,14 @@
         sort: 'name',
         mode: 'template',
         findReplace: { find: '', replace: '' },
+        regexFlags: 'gi',
         removeText: '',
         removeCaseInsensitive: true,
       };
 
       const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
       const results = h('div', { class: 'results' });
+      const historyBox = h('div', { class: 'group' });
       let nameInputs = new WeakMap();
       const formatInput = h('textarea', { class: 'input mono', rows: '2', spellcheck: 'false', text: state.format });
       const previewLine = h('div', { class: 'preview-line' });
@@ -166,7 +171,58 @@
           const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           return base.replace(new RegExp(escaped, 'gi'), () => state.findReplace.replace);
         }
+        if (state.mode === 'regex') {
+          const base = baseAndExt(file.name).base;
+          if (!state.findReplace.find) return base;
+          try {
+            let flags = String(state.regexFlags || 'gi').replace(/[^dgimsuvy]/g, '');
+            if (!flags.includes('g')) flags += 'g';
+            return base.replace(new RegExp(state.findReplace.find, flags), () => state.findReplace.replace);
+          } catch { return base; }
+        }
         return baseAndExt(applyTemplate(state.format, file, index, state.overrides)).base;
+      }
+
+      function drawHistory() {
+        clear(historyBox);
+        historyBox.appendChild(h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Rename history' })]));
+        const body = h('div', { class: 'group-body' });
+        if (state.history.length === 0) body.appendChild(h('span', { class: 'muted', text: 'Saved renames can be undone here.' }));
+        else {
+          const latest = state.history[0];
+          const count = latest.items.length;
+          const canUndo = state.folder && latest.folder === state.folder;
+          body.appendChild(h('div', { class: 'action-row' }, [
+            h('span', { class: 'muted', text: `${count} rename(s) · ${new Date(latest.createdAt).toLocaleString()}` }),
+            h('button', {
+              class: 'btn btn-sm', type: 'button', text: canUndo ? 'Undo latest rename' : 'Choose that folder to undo', disabled: !canUndo,
+              onclick: async () => {
+                const res = await api.invoke('renameBatch', { folder: latest.folder, items: latest.items.map(item => ({ oldName: item.to, newName: item.from, relativePath: item.currentPath })) });
+                if (!res.ok) { api.toast(`Undo failed: ${res.error}`, 'error'); return; }
+                state.history.shift();
+                writeJson('toolhub_rename_history_v1', state.history);
+                api.toast(`Undid ${res.data.renamed} rename(s)`, 'ok');
+                await loadFolder(state.folder);
+              },
+            }),
+          ]));
+          body.appendChild(h('div', { class: 'log' }, latest.items.slice(0, 12).map(item => h('div', { class: 'log-line', text: `${item.from} → ${item.to}` }))));
+        }
+        historyBox.appendChild(body);
+      }
+
+      function recordHistory(folder, items) {
+        if (!items.length) return;
+        const operations = items.map(item => ({ ...item }));
+        state.history.unshift({ id: Date.now(), folder, createdAt: Date.now(), items: operations });
+        let total = state.history.reduce((sum, batch) => sum + batch.items.length, 0);
+        while (state.history.length > 25 || total > 5000) {
+          const removed = state.history.pop();
+          if (!removed) break;
+          total -= removed.items.length;
+        }
+        if (!writeJson('toolhub_rename_history_v1', state.history)) api.toast('Rename completed, but history could not be saved.', 'warn');
+        drawHistory();
       }
 
       function computeNames() {
@@ -221,8 +277,11 @@
           if (inputEl) inputEl.classList.add('bad');
           return false;
         }
+        const oldName = file.name;
+        const oldPath = file.relativePath;
         file.name = file.newName;
         file.relativePath = file.relativePath.replace(/[^\\/]+$/, () => file.newName);
+        recordHistory(state.folder, [{ from: oldName, to: file.name, currentPath: file.relativePath, originalPath: oldPath }]);
         file.status = 'saved';
         if (inputEl) {
           inputEl.classList.remove('bad');
@@ -236,11 +295,15 @@
         clear(results);
         if (!state.folder) {
           results.appendChild(empty('Choose a folder to begin.'));
+          drawHistory();
+          results.appendChild(historyBox);
           return;
         }
         const list = computeNames();
         if (list.length === 0) {
           results.appendChild(empty('No files in this folder.'));
+          drawHistory();
+          results.appendChild(historyBox);
           return;
         }
 
@@ -264,6 +327,7 @@
               api.toast(res.error, 'error');
               return;
             }
+            recordHistory(state.folder, pending.map(file => ({ from: file.name, to: file.newName, currentPath: file.relativePath.replace(/[^\\/]+$/, () => file.newName), originalPath: file.relativePath })));
             api.toast(`Renamed ${res.data.renamed} file(s)`, 'ok');
             loadFolder(state.folder);
           },
@@ -329,7 +393,11 @@
               h('button', {
                 class: 'mini-btn', type: 'button', text: 'Save',
                 onclick: async () => {
-                  if (await saveOne(file, input)) api.toast('Renamed', 'ok');
+                  if (await saveOne(file, input)) {
+                    api.toast('Renamed', 'ok');
+                    drawList();
+                    updatePreview();
+                  }
                 },
               }),
             ].filter(Boolean)),
@@ -343,6 +411,8 @@
           { label: 'State', width: '80px' },
           { label: '', width: '130px' },
         ], rows));
+        drawHistory();
+        results.appendChild(historyBox);
       }
 
       async function lookup(file, input) {
@@ -523,6 +593,18 @@
         class: 'input', type: 'text', placeholder: 'Rename matches to',
         oninput: e => { state.findReplace.replace = e.target.value; updatePreview(); },
       });
+      const regexFind = h('input', {
+        class: 'input mono', type: 'text', placeholder: 'Regex pattern',
+        oninput: e => { state.findReplace.find = e.target.value; updatePreview(); },
+      });
+      const regexReplace = h('input', {
+        class: 'input mono', type: 'text', placeholder: 'Replacement ($1, etc.)',
+        oninput: e => { state.findReplace.replace = e.target.value; updatePreview(); },
+      });
+      const regexFlags = h('input', {
+        class: 'input mono', type: 'text', value: state.regexFlags, placeholder: 'gi', title: 'Regex flags',
+        oninput: e => { state.regexFlags = e.target.value; updatePreview(); },
+      });
 
       const removeTextarea = h('textarea', {
         class: 'input mono', rows: '3', spellcheck: 'false',
@@ -536,11 +618,11 @@
 
       const modeButtonsWrap = h('div', { class: 'shape-grid' });
       const modeBody = h('div', { class: 'mode-body' });
-      const MODE_LABELS = { template: 'Template', findReplace: 'Find & Replace', game: 'Detect Game Name' };
+      const MODE_LABELS = { template: 'Template', findReplace: 'Find & Replace', regex: 'Regex', game: 'Detect Game Name' };
 
       function renderModeButtons() {
         clear(modeButtonsWrap);
-        for (const m of ['template', 'findReplace', 'game']) {
+        for (const m of ['template', 'findReplace', 'regex', 'game']) {
           modeButtonsWrap.appendChild(h('button', {
             class: `settings-mode-btn${state.mode === m ? ' active' : ''}`,
             type: 'button',
@@ -567,6 +649,9 @@
         } else if (state.mode === 'findReplace') {
           modeBody.appendChild(h('div', { class: 'field-row' }, [ruleFind, ruleReplace]));
           modeBody.appendChild(h('span', { class: 'field-hint', text: 'Find and replace text in the filename before the extension. Leave replacement blank to remove matching text.' }));
+        } else if (state.mode === 'regex') {
+          modeBody.appendChild(h('div', { class: 'field-row' }, [regexFind, regexReplace, regexFlags]));
+          modeBody.appendChild(h('span', { class: 'field-hint', text: 'Regular expression runs against the filename before its extension. Replacement supports JavaScript capture groups.' }));
         } else {
           modeBody.appendChild(statusNote(
             'Strips dates, timestamps and capture-software words from the filename, leaving what comes before them \u2014 for example "ArcRaiders-2026.09.24-20.15.32" becomes "ArcRaiders". Works best with ShadowPlay, Xbox Game Bar and similar tools that put the game name first. It reads the filename structure only, not a game database, so check the results before saving.',

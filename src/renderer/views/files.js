@@ -1,5 +1,5 @@
 (function () {
-  const { h, clear, fmtBytes, fmtDate, fmtNumber, table, empty, statusNote, stat, toolShell } = window.UI;
+  const { h, clear, fmtBytes, fmtDate, fmtNumber, table, empty, statusNote, stat, toolShell, downloadFile, exportCsv } = window.UI;
   const Hub = window.Hub;
 
   Hub.registerView('folder-compare', {
@@ -131,6 +131,10 @@
             results.appendChild(statusNote(res.error, 'error'));
             return;
           }
+          results.appendChild(h('div', { class: 'action-row' }, [
+            h('button', { class: 'btn btn-sm', type: 'button', text: 'Export JSON', onclick: () => downloadFile('file-hashes.json', JSON.stringify(res.data, null, 2), 'application/json;charset=utf-8') }),
+            h('button', { class: 'btn btn-sm', type: 'button', text: 'Export CSV', onclick: () => downloadFile('file-hashes.csv', exportCsv(res.data.results), 'text/csv;charset=utf-8') }),
+          ]));
           const rows = res.data.results.map(r => h('div', { class: 'tbl-row' }, [
             h('span', { class: 'mono ellipsis', text: r.name, title: r.path }),
             h('span', { class: 'mono', text: r.ok ? fmtBytes(r.size) : '—' }),

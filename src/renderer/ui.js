@@ -197,6 +197,43 @@ function buildField(field, state, onChange) {
   ]);
 }
 
+function downloadFile(filename, content, mime = 'text/plain;charset=utf-8') {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename.replace(/[\\/:*?"<>|]/g, '_');
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function flattenExportRows(value, context = {}, rows = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) flattenExportRows(item, context, rows);
+    return rows;
+  }
+  if (!value || typeof value !== 'object') {
+    rows.push({ ...context, value });
+    return rows;
+  }
+  const current = { ...context };
+  const nested = [];
+  for (const [key, item] of Object.entries(value)) {
+    if (item && typeof item === 'object') nested.push([key, item]);
+    else current[key] = item;
+  }
+  if (nested.length === 0) rows.push(current);
+  else for (const [key, item] of nested) flattenExportRows(item, { ...current, _collection: key }, rows);
+  return rows;
+}
+
+function exportCsv(value) {
+  const rows = flattenExportRows(value);
+  const columns = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+  const cell = value => `"${(value === null || value === undefined ? '' : String(value)).replace(/"/g, '""')}"`;
+  return [columns.map(cell).join(','), ...rows.map(row => columns.map(key => cell(row[key])).join(','))].join('\r\n');
+}
+
 function toolShell(def, api) {
   const state = { ...(def.defaults || {}) };
   const results = h('div', { class: 'results' });
@@ -212,7 +249,13 @@ function toolShell(def, api) {
     clear(results);
     try {
       const out = def.render(data, { ...api, state, rerun: run });
-      if (out) results.appendChild(out);
+      if (out) {
+        results.appendChild(h('div', { class: 'action-row' }, [
+          h('button', { class: 'btn btn-sm', type: 'button', text: 'Export JSON', onclick: () => downloadFile(`${def.title || 'results'}.json`, JSON.stringify(data, null, 2), 'application/json;charset=utf-8') }),
+          h('button', { class: 'btn btn-sm', type: 'button', text: 'Export CSV', onclick: () => downloadFile(`${def.title || 'results'}.csv`, exportCsv(data), 'text/csv;charset=utf-8') }),
+        ]));
+        results.appendChild(out);
+      }
     } catch (err) {
       results.appendChild(statusNote(`Could not display results: ${err.message}`, 'error'));
     }
@@ -268,5 +311,5 @@ function toolShell(def, api) {
 window.Hub = Hub;
 window.UI = {
   h, clear, fmtBytes, fmtDate, fmtNumber, baseName, dirName,
-  table, row, empty, statusNote, stat, bar, buildField, toolShell,
+  table, row, empty, statusNote, stat, bar, buildField, toolShell, downloadFile, exportCsv,
 };

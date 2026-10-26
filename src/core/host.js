@@ -20,6 +20,12 @@ const MODULE_FILES = {
   network: 'network',
   attributes: 'attributes',
   'file-dates': 'file-dates',
+  'empty-folders': 'empty-folders',
+  'small-files': 'small-files',
+  'tree-export': 'tree-export',
+  'port-process': 'port-process',
+  'system-editor': 'system-editor',
+  utilities: 'utilities',
 };
 
 function createHost(options) {

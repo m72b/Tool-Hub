@@ -155,6 +155,12 @@ const TOOLS = [
     platforms: ALL,
     core: false,
   },
+  { id: 'empty-folders', name: 'Empty Folder Cleaner', category: 'Cleanup', icon: 'EF', description: 'Find and safely remove empty folders.', platforms: ALL, core: false },
+  { id: 'small-files', name: 'Zero-Byte & Shortcut Finder', category: 'Cleanup', icon: 'ZS', description: 'Find empty files and broken Windows shortcuts.', platforms: ALL, core: false },
+  { id: 'tree-export', name: 'Directory Tree Export', category: 'Files', icon: 'DT', description: 'Export a folder structure as text or Markdown.', platforms: ALL, core: false },
+  { id: 'port-process', name: 'Port & Process Viewer', category: 'System', icon: 'PP', description: 'View listening ports and stop a selected process.', platforms: ALL, core: false },
+  { id: 'system-editor', name: 'Hosts & Environment Editor', category: 'System', icon: 'HE', description: 'Edit Windows hosts and user environment settings with backups.', platforms: WIN, core: false },
+  { id: 'utilities', name: 'Text & Data Utilities', category: 'Utilities', icon: 'UT', description: 'Format JSON, convert Base64, compare text, test regex and create passwords.', platforms: ALL, core: true },
 ];
 
 const BY_ID = new Map(TOOLS.map(t => [t.id, t]));

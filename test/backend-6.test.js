@@ -32,7 +32,7 @@ r=await lhost.invoke('apps-manager','list',{});
 assert.strictEqual(r.ok,false);assert.match(r.error,/not available on this platform/,'platform gate');
 // catalog shape
 const cat=host.catalog();
-assert.strictEqual(cat.tools.length,17,'17 tools');
+assert.strictEqual(cat.tools.length,registry.TOOLS.length,'catalog tool count');
 assert.ok(cat.tools.find(t=>t.id==='duplicates').installed,'installed flag');
 assert.ok(cat.tools.find(t=>t.id==='renamer').core,'core flag');
 assert.ok(cat.categories.length>0,'categories');

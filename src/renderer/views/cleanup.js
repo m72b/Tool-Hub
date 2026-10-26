@@ -1,5 +1,5 @@
 (function () {
-  const { h, clear, fmtBytes, fmtDate, fmtNumber, table, empty, statusNote, stat, bar, toolShell } = window.UI;
+  const { h, clear, fmtBytes, fmtDate, fmtNumber, table, empty, statusNote, stat, bar, toolShell, downloadFile, exportCsv } = window.UI;
   const Hub = window.Hub;
 
   const SIZES = [
@@ -206,6 +206,10 @@
           stat('Total', fmtBytes(data.total)),
           stat('Files here', fmtNumber(data.fileCount)),
           stat('Entries', fmtNumber(data.children.length)),
+        ]));
+        results.appendChild(h('div', { class: 'action-row' }, [
+          h('button', { class: 'btn btn-sm', type: 'button', text: 'Export JSON', onclick: () => downloadFile('disk-analysis.json', JSON.stringify(data, null, 2), 'application/json;charset=utf-8') }),
+          h('button', { class: 'btn btn-sm', type: 'button', text: 'Export CSV', onclick: () => downloadFile('disk-analysis.csv', exportCsv(data.children), 'text/csv;charset=utf-8') }),
         ]));
 
         if (data.children.length === 0) {
