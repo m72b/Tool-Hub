@@ -129,6 +129,7 @@
       const state = {
         folder: '',
         recursive: false,
+        truncated: false,
         files: [],
         format: '{original}',
         overrides: readJson(OVERRIDE_KEY, {}),
@@ -205,6 +206,7 @@
           return;
         }
         state.folder = res.data.folder;
+        state.truncated = res.data.truncated === true;
         state.files = res.data.files.map(f => ({ ...f, newName: f.name, status: 'idle' }));
         drawList();
         updatePreview();
@@ -246,6 +248,7 @@
           stat('Files', fmtNumber(list.length)),
           stat('Pending changes', fmtNumber(list.filter(f => f.newName !== f.name).length), 'warn'),
         ]));
+        if (state.truncated) results.appendChild(statusNote('This folder contains more than 5,000 files. Preview and rename results are partial.', 'warn'));
 
         const saveAll = h('button', {
           class: 'btn btn-accent', type: 'button', text: 'Save all changes',
@@ -387,6 +390,7 @@
         state.format = e.target.value;
         updatePreview();
       };
+      formatInput.onkeydown = e => { if (e.key === 'Enter') e.preventDefault(); };
 
       const tokenChips = h('div', { class: 'chips' }, BUILTIN_TOKENS.map(token => h('button', {
         class: 'chip', type: 'button', text: token,
@@ -477,6 +481,10 @@
               onclick: () => {
                 state.format = preset.format;
                 formatInput.value = preset.format;
+                state.mode = 'template';
+                renderModeButtons();
+                renderModeBody();
+                drawList();
                 updatePreview();
               },
             }),

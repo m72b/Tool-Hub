@@ -63,7 +63,7 @@
             wrap.appendChild(card('Graphics', e.gpu.flatMap((g, i) => [
               kv(`GPU ${i + 1}`, g.Name),
               kv('Driver', g.DriverVersion),
-              g.AdapterRAM ? kv('Adapter memory', fmtBytes(Number(g.AdapterRAM))) : null,
+              g.AdapterRAM ? kv('Adapter memory', fmtBytes(Number(g.AdapterRAM))) : (g.AdapterRAMLimited ? kv('Adapter memory', '4 GB (WMI limit; actual may be higher)') : null),
             ])));
           }
 
@@ -308,7 +308,7 @@
         clear(results);
         if (d.summary) {
           results.appendChild(h('div', { class: 'stat-row' }, [
-            stat('Replies', fmtNumber(d.summary.sent)),
+            stat('Replies', fmtNumber(d.summary.received)),
             stat('Average', `${d.summary.avg} ms`),
             stat('Min / Max', `${d.summary.min} / ${d.summary.max} ms`),
             d.loss !== null ? stat('Packet loss', `${d.loss}%`, d.loss > 0 ? 'warn' : 'ok') : null,

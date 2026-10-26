@@ -43,21 +43,13 @@ async function storage(platform) {
 }
 
 async function windowsExtras() {
-  const gpu = await safe.powershellJson(
-    'Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,AdapterRAM,VideoProcessor | ConvertTo-Json -Compress'
-  );
-  const board = await safe.powershellJson(
-    'Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer,Product,Version | ConvertTo-Json -Compress'
-  );
-  const bios = await safe.powershellJson(
-    'Get-CimInstance Win32_BIOS | Select-Object Manufacturer,SMBIOSBIOSVersion,ReleaseDate | ConvertTo-Json -Compress'
-  );
-  const osInfo = await safe.powershellJson(
-    'Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture,InstallDate | ConvertTo-Json -Compress'
-  );
-  const mem = await safe.powershellJson(
-    'Get-CimInstance Win32_PhysicalMemory | Select-Object Capacity,Speed,Manufacturer,MemoryType | ConvertTo-Json -Compress'
-  );
+  const [gpu, board, bios, osInfo, mem] = await Promise.all([
+    safe.powershellJson('Get-CimInstance Win32_VideoController | ForEach-Object { $ram=$_.AdapterRAM;$limited=([uint64]$ram -ge 4294967295);if($limited){$ram=$null};[PSCustomObject]@{Name=$_.Name;DriverVersion=$_.DriverVersion;AdapterRAM=$ram;AdapterRAMLimited=$limited;VideoProcessor=$_.VideoProcessor} } | ConvertTo-Json -Compress'),
+    safe.powershellJson('Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer,Product,Version | ConvertTo-Json -Compress'),
+    safe.powershellJson('Get-CimInstance Win32_BIOS | Select-Object Manufacturer,SMBIOSBIOSVersion,ReleaseDate | ConvertTo-Json -Compress'),
+    safe.powershellJson('Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture,InstallDate | ConvertTo-Json -Compress'),
+    safe.powershellJson('Get-CimInstance Win32_PhysicalMemory | Select-Object Capacity,Speed,Manufacturer,MemoryType | ConvertTo-Json -Compress'),
+  ]);
   return {
     gpu: gpu.ok ? gpu.data : [],
     motherboard: board.ok && board.data ? board.data[0] : null,

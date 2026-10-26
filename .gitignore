@@ -3,7 +3,5 @@ dist/
 release/
 *test build/
 m72b's test build/
-scripts/
-test/
 *.log
 .DS_Store

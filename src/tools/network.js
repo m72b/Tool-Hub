@@ -17,13 +17,13 @@ function buildTraceArgs(platform, host, maxHops) {
 
 function parsePing(output) {
   const times = [];
-  const re = /(?:time|tiempo|temps)[=<]\s*([\d.]+)\s*ms/gi;
+  const re = /[=<]\s*([\d.]+)\s*ms/gi;
   let m;
   while ((m = re.exec(output)) !== null) times.push(Number(m[1]));
   const lossMatch = output.match(/([\d.]+)%\s*(?:packet\s*)?loss/i) || output.match(/\(\s*([\d.]+)%\s*(?:loss|perdidos)/i);
   const summary = times.length > 0
     ? {
-        sent: times.length,
+        received: times.length,
         min: Math.min(...times),
         max: Math.max(...times),
         avg: Math.round((times.reduce((a, b) => a + b, 0) / times.length) * 10) / 10,
@@ -51,14 +51,10 @@ async function lookup(params) {
   const types = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME'];
   const records = {};
   const errors = {};
-  for (const type of types) {
-    try {
-      records[type] = await dns.resolve(host, type);
-    } catch (err) {
-      errors[type] = err.code || err.message;
-      records[type] = [];
-    }
-  }
+  await Promise.all(types.map(async type => {
+    try { records[type] = await dns.resolve(host, type); }
+    catch (err) { errors[type] = err.code || err.message; records[type] = []; }
+  }));
   let reverse = [];
   try {
     const first = records.A[0];

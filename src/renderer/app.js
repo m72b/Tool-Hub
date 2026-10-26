@@ -1,4 +1,5 @@
 (function () {
+  document.documentElement.dataset.platform = window.hub.platform;
   const { h, clear, statusNote } = window.UI;
   const Hub = window.Hub;
 

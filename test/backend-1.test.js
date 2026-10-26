@@ -1,0 +1,51 @@
+const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
+const D=require(require('path').join(__dirname,'..','src','tools/duplicates'));
+const L=require(require('path').join(__dirname,'..','src','tools/large-files'));
+const A=require(require('path').join(__dirname,'..','src','tools/disk-analyzer'));
+const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'dup-'));
+fs.mkdirSync(path.join(tmp,'sub'));
+fs.writeFileSync(path.join(tmp,'a.txt'),'IDENTICAL CONTENT');
+fs.writeFileSync(path.join(tmp,'sub/b.txt'),'IDENTICAL CONTENT');
+fs.writeFileSync(path.join(tmp,'sub/c.txt'),'IDENTICAL CONTENT');
+fs.writeFileSync(path.join(tmp,'d.txt'),'different but same len!!');
+fs.writeFileSync(path.join(tmp,'e.txt'),'different but same lenXX');
+fs.writeFileSync(path.join(tmp,'sub/a.txt'),'unique-name-match');
+fs.writeFileSync(path.join(tmp,'big.bin'),Buffer.alloc(200000,7));
+(async()=>{
+  let r=await D.actions.scan({roots:[tmp],matchBy:'hash',minSize:0});
+  assert.strictEqual(r.groups.length,1,'hash: one dup group, got '+r.groups.length);
+  assert.strictEqual(r.groups[0].count,3,'hash: 3 identical');
+  assert.strictEqual(r.wasted,17*2,'wasted bytes '+r.wasted);
+  r=await D.actions.scan({roots:[tmp],matchBy:'size',minSize:0});
+  const sizeGroup=r.groups.find(g=>g.size===24);
+  assert.ok(sizeGroup&&sizeGroup.count===2,'size groups the 24-byte pair');
+  r=await D.actions.scan({roots:[tmp],matchBy:'name',minSize:0});
+  const nameGroup=r.groups.find(g=>g.key==='a.txt');
+  assert.ok(nameGroup&&nameGroup.count===2,'name matches a.txt x2');
+  r=await D.actions.scan({roots:[tmp],matchBy:'hash',minSize:100000});
+  assert.strictEqual(r.groups.length,0,'minSize filters out small dups');
+  // remove with trash stub + traversal guard
+  const trashed=[];
+  const ctx={trash:async p=>{trashed.push(p);fs.rmSync(p);}};
+  const rem=await D.actions.remove({roots:[tmp],paths:[path.join(tmp,'sub/b.txt')]},ctx);
+  assert.strictEqual(rem.removed,1,'removed one');
+  const bad=await D.actions.remove({roots:[path.join(tmp,'sub')],paths:[path.join(tmp,'a.txt')]},ctx);
+  assert.strictEqual(bad.removed,0,'outside-root delete blocked');
+  assert.match(bad.failed[0].error,/outside the permitted folder/);
+  // large files
+  let lf=await L.actions.scan({root:tmp,minSize:100000});
+  assert.strictEqual(lf.files.length,1,'one large file');
+  assert.strictEqual(lf.files[0].name,'big.bin');
+  lf=await L.actions.scan({root:tmp,minSize:0,limit:3});
+  assert.strictEqual(lf.files.length,3,'limit respected');
+  assert.ok(lf.files[0].size>=lf.files[1].size,'sorted desc');
+  // analyzer
+  let an=await A.actions.scan({root:tmp});
+  assert.ok(an.total>200000,'total size');
+  const sub=an.children.find(c=>c.name==='sub');
+  assert.ok(sub&&sub.isDir,'sub listed as dir');
+  assert.ok(an.children[0].size>=an.children[1].size,'children sorted');
+  assert.ok(an.children.every(c=>c.percent<=100),'percent sane');
+  fs.rmSync(tmp,{recursive:true,force:true});
+  console.log('cleanup tools: all checks passed');
+})();

@@ -5,14 +5,15 @@ const { createStore } = require('./src/core/store');
 const { createHost } = require('./src/core/host');
 
 const RENDERER = path.join(__dirname, 'src', 'renderer', 'index.html');
-const IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
-const IMAGE_MAX = 8 * 1024 * 1024;
+const approvedDirectories = new Set();
+const approvedFiles = new Set();
 
 let mainWindow = null;
 let store = null;
 let host = null;
 
 function createWindow() {
+  const appIcon = path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -21,7 +22,7 @@ function createWindow() {
     frame: process.platform === 'darwin',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     backgroundColor: '#0b0d12',
-    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
+    ...(fs.existsSync(appIcon) ? { icon: appIcon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -50,6 +51,49 @@ function createWindow() {
 function requireWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) throw new Error('Window is not available');
   return mainWindow;
+}
+
+function approveFolder(folder) {
+  const resolved = fs.realpathSync.native(folder);
+  if (!fs.statSync(resolved).isDirectory()) throw new Error('Selected path is not a folder');
+  approvedDirectories.add(resolved);
+  return resolved;
+}
+
+function approveFile(file) {
+  const resolved = fs.realpathSync.native(file);
+  if (!fs.statSync(resolved).isFile()) throw new Error('Selected path is not a file');
+  approvedFiles.add(resolved);
+  return resolved;
+}
+
+function isWithin(ancestor, candidate) {
+  const root = process.platform === 'win32' ? ancestor.toLowerCase() : ancestor;
+  const target = process.platform === 'win32' ? candidate.toLowerCase() : candidate;
+  const relative = path.relative(root, target);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function isApprovedPath(target) {
+  if (typeof target !== 'string' || !path.isAbsolute(target)) return false;
+  let resolved;
+  try { resolved = fs.realpathSync.native(target); } catch { return false; }
+  if (approvedFiles.has(resolved)) return true;
+  return Array.from(approvedDirectories).some(root => isWithin(root, resolved));
+}
+
+function validateRendererPaths(params) {
+  const pathFields = ['folder', 'root', 'left', 'right', 'roots', 'path', 'paths', 'dir'];
+  for (const field of pathFields) {
+    const value = params[field];
+    if (typeof value === 'string' && value.length > 0) {
+      if (!isApprovedPath(value)) throw new Error('Choose this folder or file using the app picker first');
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item !== 'string' || !isApprovedPath(item)) throw new Error('Choose each folder or file using the app picker first');
+      }
+    }
+  }
 }
 
 async function trashItem(target) {
@@ -86,11 +130,11 @@ ipcMain.on('shell:window', (_event, action) => {
 
 ipcMain.handle('shell:pickFolder', async (_event, title) => {
   const result = await dialog.showOpenDialog(requireWindow(), {
-    properties: ['openDirectory', 'createDirectory'],
+    properties: ['openDirectory'],
     title: typeof title === 'string' && title ? title.slice(0, 120) : 'Choose a folder',
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  return result.filePaths[0];
+  return approveFolder(result.filePaths[0]);
 });
 
 ipcMain.handle('shell:pickFiles', async () => {
@@ -100,6 +144,7 @@ ipcMain.handle('shell:pickFiles', async () => {
   });
   if (result.canceled) return [];
   return result.filePaths.map(filePath => {
+    filePath = approveFile(filePath);
     const stat = fs.statSync(filePath);
     return {
       path: filePath,
@@ -112,27 +157,8 @@ ipcMain.handle('shell:pickFiles', async () => {
   });
 });
 
-ipcMain.handle('shell:pickImage', async () => {
-  const result = await dialog.showOpenDialog(requireWindow(), {
-    title: 'Choose a background image',
-    properties: ['openFile'],
-    filters: [{ name: 'Images', extensions: Object.keys(IMAGE_MIME) }],
-  });
-  if (result.canceled || result.filePaths.length === 0) return null;
-  const filePath = result.filePaths[0];
-  const ext = path.extname(filePath).slice(1).toLowerCase();
-  const mime = IMAGE_MIME[ext];
-  if (!mime) return { ok: false, error: 'Unsupported image type' };
-  const stat = fs.statSync(filePath);
-  if (!stat.isFile()) return { ok: false, error: 'Not a file' };
-  if (stat.size > IMAGE_MAX) return { ok: false, error: 'Image is larger than 8MB' };
-  const data = fs.readFileSync(filePath);
-  return { ok: true, dataUrl: `data:${mime};base64,${data.toString('base64')}`, name: path.basename(filePath) };
-});
-
 ipcMain.handle('shell:reveal', async (_event, target) => {
-  if (typeof target !== 'string' || target.length === 0) return false;
-  if (!fs.existsSync(target)) return false;
+  if (!isApprovedPath(target)) return false;
   shell.showItemInFolder(target);
   return true;
 });
@@ -160,6 +186,8 @@ ipcMain.handle('tool:invoke', async (_event, payload) => {
   if (!payload || typeof payload !== 'object') return { ok: false, error: 'Invalid request' };
   const { toolId, action, params } = payload;
   if (typeof toolId !== 'string' || typeof action !== 'string') return { ok: false, error: 'Invalid request' };
+  try { validateRendererPaths(params || {}); }
+  catch (err) { return { ok: false, error: err.message }; }
   return host.invoke(toolId, action, params);
 });
 

@@ -9,7 +9,6 @@ contextBridge.exposeInMainWorld('hub', {
   },
   pickFolder: title => ipcRenderer.invoke('shell:pickFolder', title),
   pickFiles: () => ipcRenderer.invoke('shell:pickFiles'),
-  pickImage: () => ipcRenderer.invoke('shell:pickImage'),
   reveal: target => ipcRenderer.invoke('shell:reveal', target),
   tools: {
     catalog: () => ipcRenderer.invoke('tools:catalog'),

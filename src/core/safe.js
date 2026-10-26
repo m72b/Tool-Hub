@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const net = require('net');
 const { execFile } = require('child_process');
 
 class SafeError extends Error {
@@ -96,6 +97,7 @@ function validHost(input) {
   const host = input.trim();
   if (host.length === 0) fail('Host is required');
   if (host.length > 253) fail('Host is too long');
+  if (net.isIP(host) === 6) return host;
   if (!HOST_PATTERN.test(host)) fail('Host contains invalid characters');
   return host;
 }

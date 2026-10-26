@@ -62,7 +62,7 @@ Batch Renamer and File Organizer are core tools and are always installed. Instal
 
 ## Dependencies
 
-No runtime dependencies. Every tool uses Node builtins only. Image encoding runs through the Chromium canvas in the renderer, and Windows hardware data comes from PowerShell and `reg.exe`, so there is no native module to compile.
+The app uses `music-metadata` to read audio tags for Batch Renamer. Other tools use Node builtins. Image encoding runs through Chromium canvas, and Windows hardware data comes from PowerShell and `reg.exe`; no native modules need to be compiled.
 
 ## Testing
 

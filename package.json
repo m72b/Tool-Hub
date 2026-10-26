@@ -19,7 +19,6 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico",
       "artifactName": "m72b-tool-hub-Setup-${version}.${ext}"
     },
     "nsis": {
@@ -29,18 +28,15 @@
       "deleteAppDataOnUninstall": false
     },
     "mac": {
-      "target": "dmg",
-      "icon": "assets/icon.icns"
+      "target": "dmg"
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "assets/icon.png"
+      "target": "AppImage"
     },
     "files": [
       "main.js",
       "preload.js",
-      "src/**",
-      "assets/**"
+      "src/**"
     ]
   },
   "devDependencies": {
