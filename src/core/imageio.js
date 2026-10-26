@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const safe = require('../core/safe');
-const { walkFiles } = require('../core/walk');
+const { walkFilesAsync } = require('./walk');
 
 const READ_EXT = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif'];
 const WRITE_MIME = {
@@ -24,7 +24,7 @@ const MAX_READ = 64 * 1024 * 1024;
 async function listImages(params) {
   const folder = safe.existingDir(params.folder);
   const recursive = params.recursive === true;
-  const res = walkFiles(folder, {
+  const res = await walkFilesAsync(folder, {
     recursive,
     limit: 5000,
     filter: f => READ_EXT.includes(f.ext),
@@ -40,9 +40,9 @@ async function read(params) {
   const file = safe.existingFile(params.path);
   const ext = path.extname(file).slice(1).toLowerCase();
   if (!READ_EXT.includes(ext)) safe.fail('Unsupported image type');
-  const stat = fs.statSync(file);
+  const stat = await fs.promises.stat(file);
   if (stat.size > MAX_READ) safe.fail('Image is too large to process');
-  const data = fs.readFileSync(file);
+  const data = await fs.promises.readFile(file);
   return {
     path: file,
     name: path.basename(file),

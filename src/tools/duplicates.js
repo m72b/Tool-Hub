@@ -2,7 +2,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const safe = require('../core/safe');
-const { walkFiles } = require('../core/walk');
+const { walkFilesAsync } = require('../core/walk');
 
 function hashFile(file, bytes) {
   return new Promise(resolve => {
@@ -45,7 +45,7 @@ async function scan(params) {
   const all = [];
   let truncated = false;
   for (const root of roots) {
-    const res = walkFiles(root, { recursive, filter: f => f.size >= minSize });
+    const res = await walkFilesAsync(root, { recursive, filter: f => f.size >= minSize });
     all.push(...res.files);
     if (res.truncated) truncated = true;
   }

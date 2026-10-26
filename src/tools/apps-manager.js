@@ -1,7 +1,18 @@
 const { spawn } = require('child_process');
+const fs = require('fs');
 const safe = require('../core/safe');
 
 const cache = new Map();
+
+function parseUninstallCommand(command) {
+  const raw = String(command || '').trim();
+  const unquotedExe = /^(.+?\.(?:exe|com|bat|cmd))(?=\s|$)(?:\s+(.*))?$/i.exec(raw);
+  if (unquotedExe && fs.existsSync(unquotedExe[1])) {
+    const tail = safe.parseCommandLine(unquotedExe[2] || '');
+    return { command: unquotedExe[1], args: tail ? [tail.command, ...tail.args] : [] };
+  }
+  return safe.parseCommandLine(raw);
+}
 
 const QUERY = [
   '$keys=@(',
@@ -51,7 +62,7 @@ async function uninstall(params, ctx) {
   if (!cache.has(key)) safe.fail('Refresh the application list before uninstalling');
   const command = cache.get(key);
   if (!command) safe.fail('This application does not provide an uninstaller');
-  const parsed = safe.parseCommandLine(command);
+  const parsed = parseUninstallCommand(command);
   if (!parsed) safe.fail('Could not read the uninstall command');
   try {
     const child = spawn(parsed.command, parsed.args, { detached: true, stdio: 'ignore', shell: false, windowsHide: false });
@@ -62,4 +73,4 @@ async function uninstall(params, ctx) {
   return { started: true, name: key };
 }
 
-module.exports = { id: 'apps-manager', actions: { list, uninstall }, cache };
+module.exports = { id: 'apps-manager', actions: { list, uninstall }, cache, parseUninstallCommand };

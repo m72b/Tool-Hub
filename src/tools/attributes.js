@@ -2,7 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const safe = require('../core/safe');
-const { walkFiles } = require('../core/walk');
+const { walkFilesAsync } = require('../core/walk');
 
 const FLAGS = { readonly: 'R', hidden: 'H', system: 'S', archive: 'A' };
 
@@ -29,7 +29,7 @@ function parseWindowsAttrs(value) {
 async function list(params, ctx) {
   const folder = safe.existingDir(params.folder);
   const recursive = params.recursive === true;
-  const res = walkFiles(folder, { recursive, limit: 5000 });
+  const res = await walkFilesAsync(folder, { recursive, limit: 5000 });
 
   if (ctx.platform === 'win32') {
     const listFile = path.join(os.tmpdir(), `mtb-attr-${process.pid}-${Date.now()}.txt`);
@@ -61,11 +61,14 @@ async function list(params, ctx) {
   return {
     folder,
     supported: { readonly: true, hidden: false, system: false, archive: false },
-    files: res.files.map(f => {
-      let stat;
-      try { stat = fs.statSync(f.path); } catch { return { path: f.path, name: f.name, size: f.size, attrs: { readonly: false, hidden: false, system: false, archive: false } }; }
-      return { path: f.path, name: f.name, size: f.size, attrs: fromMode(f.path, stat) };
-    }),
+    files: await Promise.all(res.files.map(async f => {
+      try {
+        const stat = await fs.promises.stat(f.path);
+        return { path: f.path, name: f.name, size: f.size, attrs: fromMode(f.path, stat) };
+      } catch {
+        return { path: f.path, name: f.name, size: f.size, attrs: { readonly: false, hidden: false, system: false, archive: false } };
+      }
+    })),
     truncated: res.truncated,
   };
 }

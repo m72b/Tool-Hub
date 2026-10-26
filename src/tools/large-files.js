@@ -1,12 +1,12 @@
 const safe = require('../core/safe');
-const { walkFiles } = require('../core/walk');
+const { walkFilesAsync } = require('../core/walk');
 
 async function scan(params) {
   const root = safe.existingDir(params.root);
   const minSize = safe.toNumber(params.minSize, 100 * 1024 * 1024, 0);
   const limit = safe.toInt(params.limit, 200, 1, 2000);
   const recursive = params.recursive !== false;
-  const res = walkFiles(root, { recursive, filter: f => f.size >= minSize });
+  const res = await walkFilesAsync(root, { recursive, skipCommonDirs: false, filter: f => f.size >= minSize });
   const files = res.files
     .sort((a, b) => b.size - a.size)
     .slice(0, limit)

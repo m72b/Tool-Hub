@@ -227,15 +227,21 @@ function toolShell(def, api) {
       }
     }
     setBusy(true, def.busyLabel);
-    const params = def.params ? def.params(state) : { ...state };
-    const res = await api.invoke(def.action, params);
-    setBusy(false);
-    if (!res.ok) {
+    try {
+      const params = def.params ? def.params(state) : { ...state };
+      const res = await api.invoke(def.action, params);
+      if (!res.ok) {
+        clear(results);
+        results.appendChild(statusNote(res.error, 'error'));
+        return;
+      }
+      render(res.data);
+    } catch (err) {
       clear(results);
-      results.appendChild(statusNote(res.error, 'error'));
-      return;
+      results.appendChild(statusNote(err && err.message ? err.message : 'The operation failed.', 'error'));
+    } finally {
+      setBusy(false);
     }
-    render(res.data);
   };
 
   const fields = (def.fields || []).map(f => buildField(f, state, def.liveRun ? run : null));

@@ -1,13 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const safe = require('../core/safe');
-const { dirSize, shouldSkipDir } = require('../core/walk');
+const { dirSizeAsync } = require('../core/walk');
 
 async function scan(params) {
   const root = safe.existingDir(params.root);
   let entries;
   try {
-    entries = fs.readdirSync(root, { withFileTypes: true });
+    entries = await fs.promises.readdir(root, { withFileTypes: true });
   } catch (err) {
     safe.fail(`Cannot read folder: ${err.message}`);
   }
@@ -20,8 +20,7 @@ async function scan(params) {
     if (entry.isSymbolicLink()) continue;
     const full = path.join(root, entry.name);
     if (entry.isDirectory()) {
-      if (shouldSkipDir(entry.name)) continue;
-      const info = dirSize(full);
+      const info = await dirSizeAsync(full, { skipCommonDirs: false });
       children.push({
         path: full,
         name: entry.name,
@@ -34,7 +33,7 @@ async function scan(params) {
     }
     if (!entry.isFile()) continue;
     try {
-      const st = fs.statSync(full);
+      const st = await fs.promises.stat(full);
       fileBytes += st.size;
       fileCount++;
       children.push({ path: full, name: entry.name, isDir: false, size: st.size, count: 1, truncated: false });

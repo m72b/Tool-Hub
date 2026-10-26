@@ -271,7 +271,7 @@
             stat('Files', fmtNumber(data.totalCount)),
           ]));
 
-          const selected = new Set(data.targets.filter(t => t.available && t.size > 0).map(t => t.id));
+          const selected = new Set();
           const permanent = { value: false };
 
           const rows = data.targets.map(target => {
@@ -303,6 +303,8 @@
                 api.toast('Nothing selected', 'error');
                 return;
               }
+              if (!window.confirm(`Clean the contents of ${selected.size} selected location(s)?`)) return;
+              if (permanent.value && !window.confirm('Permanently delete the selected contents? This cannot be undone.')) return;
               cleanBtn.disabled = true;
               cleanBtn.textContent = 'Cleaning…';
               const res = await api.invoke('clean', { ids: Array.from(selected), permanent: permanent.value });
@@ -312,7 +314,9 @@
                 api.toast(res.error, 'error');
                 return;
               }
-              api.toast(`Removed ${res.data.removed} item(s), freed ${fmtBytes(res.data.freed)}`, 'ok');
+              api.toast(permanent.value
+                ? `Permanently deleted ${res.data.removed} item(s), freeing up to ${fmtBytes(res.data.freed)}`
+                : `Moved ${res.data.removed} item(s) to the Recycle Bin`, 'ok');
               if (res.data.skippedCount > 0) {
                 api.toast(`${res.data.skippedCount} item(s) were in use and skipped`, 'info');
               }

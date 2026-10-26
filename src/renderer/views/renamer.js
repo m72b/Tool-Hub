@@ -57,7 +57,7 @@
     return out.replace(/[\\/:*?"<>|]/g, '_');
   }
 
-  const CAPTURE_NOISE_WORDS = ['screenshot', 'screenshots', 'clip', 'clips', 'capture', 'captures', 'recording', 'recordings', 'gameplay', 'highlight', 'highlights', 'video', 'trim', 'edit', 'edited', 'final', 'export'];
+  const CAPTURE_NOISE_WORDS = ['screenshot', 'screenshots', 'clip', 'clips', 'capture', 'captures', 'recording', 'recordings', 'gameplay', 'highlight', 'highlights', 'video', 'trim', 'edit', 'edited', 'export'];
   const DATE_LIKE = /\d{4}[.\-_ ]\d{1,2}[.\-_ ]\d{1,2}(?:[.\-_ ]\d{1,2}[.\-_ ]\d{1,2}(?:[.\-_ ]\d{1,2})?)?|\d{1,2}[.\-_ ]\d{1,2}[.\-_ ]\d{4}/;
 
   function detectGameName(name) {
@@ -65,6 +65,7 @@
     let candidate = base;
 
     const match = candidate.match(DATE_LIKE);
+    if (match && match.index === 0) return base;
     if (match && match.index > 0) {
       candidate = candidate.slice(0, match.index);
     }
@@ -72,7 +73,7 @@
     candidate = candidate.replace(/[-_ .]+$/, '');
     candidate = candidate.replace(/\s*\(\d+\)\s*$/, '');
     candidate = candidate.replace(/[-_ ]?[0-9a-f]{8,}$/i, '');
-    candidate = candidate.replace(/[-_]+/g, ' ');
+    candidate = candidate.replace(/_+/g, ' ');
 
     const noisePattern = new RegExp(`\\b(${CAPTURE_NOISE_WORDS.join('|')})\\b`, 'gi');
     candidate = candidate.replace(noisePattern, ' ');
@@ -159,11 +160,10 @@
         }
         if (state.mode === 'findReplace') {
           const find = state.findReplace.find;
-          if (find && file.name.toLowerCase().includes(find.toLowerCase())) {
-            const replacement = state.findReplace.replace;
-            return replacement ? baseAndExt(replacement).base || replacement : baseAndExt(file.name).base;
-          }
-          return baseAndExt(file.name).base;
+          const base = baseAndExt(file.name).base;
+          if (!find || !base.toLowerCase().includes(find.toLowerCase())) return base;
+          const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return base.replace(new RegExp(escaped, 'gi'), () => state.findReplace.replace);
         }
         return baseAndExt(applyTemplate(state.format, file, index, state.overrides)).base;
       }
@@ -220,7 +220,7 @@
           return false;
         }
         file.name = file.newName;
-        file.relativePath = file.relativePath.replace(/[^\\/]+$/, file.newName);
+        file.relativePath = file.relativePath.replace(/[^\\/]+$/, () => file.newName);
         file.status = 'saved';
         if (inputEl) {
           inputEl.classList.remove('bad');
@@ -366,7 +366,8 @@
                 class: 'lookup-item', type: 'button',
                 onclick: () => {
                   const { ext } = baseAndExt(file.name);
-                  file.newName = ext ? `${label}.${ext}` : label;
+                  const safeLabel = label.replace(/[\\/:*?"<>|]/g, '_');
+                  file.newName = ext ? `${safeLabel}.${ext}` : safeLabel;
                   input.value = file.newName;
                   input.classList.remove('same');
                   modal.remove();
@@ -557,7 +558,7 @@
           ]));
         } else if (state.mode === 'findReplace') {
           modeBody.appendChild(h('div', { class: 'field-row' }, [ruleFind, ruleReplace]));
-          modeBody.appendChild(h('span', { class: 'field-hint', text: 'Files that don\u2019t contain the search text keep their current name.' }));
+          modeBody.appendChild(h('span', { class: 'field-hint', text: 'Find and replace text in the filename before the extension. Leave replacement blank to remove matching text.' }));
         } else {
           modeBody.appendChild(statusNote(
             'Strips dates, timestamps and capture-software words from the filename, leaving what comes before them \u2014 for example "ArcRaiders-2026.09.24-20.15.32" becomes "ArcRaiders". Works best with ShadowPlay, Xbox Game Bar and similar tools that put the game name first. It reads the filename structure only, not a game database, so check the results before saving.',
@@ -638,7 +639,40 @@
       }
 
       function saveHistory() {
-        writeJson(HISTORY_KEY, state.history);
+        let history = state.history.map(batch => ({ ...batch, moves: [...batch.moves] }));
+        let moves = history.reduce((sum, batch) => sum + batch.moves.length, 0);
+        let trimmed = false;
+        while (moves > 2000) {
+          const first = history[0];
+          if (!first) break;
+          const excess = moves - 2000;
+          const drop = Math.min(excess, first.moves.length);
+          first.moves.splice(0, drop);
+          moves -= drop;
+          trimmed = true;
+          if (first.moves.length === 0) history.shift();
+        }
+        while (history.length > 0 && JSON.stringify(history).length > 1_500_000) {
+          const oldest = history[0];
+          if (oldest.moves.length > 0) {
+            const drop = Math.max(1, Math.ceil(oldest.moves.length / 10));
+            oldest.moves.splice(0, drop);
+            moves -= drop;
+          } else history.shift();
+          trimmed = true;
+        }
+        let saved = writeJson(HISTORY_KEY, history);
+        while (!saved && history.length > 0) {
+          const oldest = history[0];
+          if (oldest.moves.length > 0) oldest.moves.splice(0, Math.max(1, Math.ceil(oldest.moves.length / 10)));
+          else history.shift();
+          trimmed = true;
+          saved = writeJson(HISTORY_KEY, history);
+        }
+        if (saved) state.history = history;
+        if (trimmed) api.toast('Oldest move history was trimmed to fit local storage.', 'info');
+        if (!saved) api.toast('Move history could not be saved. Undo may be unavailable after closing the app.', 'error');
+        return saved;
       }
 
       function drawHistory() {

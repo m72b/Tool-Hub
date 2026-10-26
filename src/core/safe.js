@@ -109,6 +109,7 @@ function toInt(value, fallback, min, max) {
 }
 
 function toNumber(value, fallback, min, max) {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   if (typeof min === 'number' && n < min) return min;

@@ -1,15 +1,19 @@
-const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const safe = require('../core/safe');
-const { dirSize } = require('../core/walk');
+const { dirSizeAsync } = require('../core/walk');
 
 function candidates(platform) {
   const home = os.homedir();
   const list = [];
+  const seen = new Set();
   const add = (id, label, dir, description) => {
     if (!dir) return;
-    list.push({ id, label, path: path.resolve(dir), description });
+    const resolved = path.resolve(dir);
+    const key = (platform === 'win32' ? resolved.toLowerCase() : resolved).replace(/[\\/]+$/, '');
+    if (seen.has(key)) return;
+    seen.add(key);
+    list.push({ id, label, path: resolved, description });
   };
   if (platform === 'win32') {
     const local = process.env.LOCALAPPDATA;
@@ -36,7 +40,7 @@ async function scan(params, ctx) {
   for (const target of targets) {
     let exists = false;
     try {
-      exists = fs.statSync(target.path).isDirectory();
+      exists = (await fs.promises.stat(target.path)).isDirectory();
     } catch {
       exists = false;
     }
@@ -44,7 +48,7 @@ async function scan(params, ctx) {
       out.push({ ...target, available: false, size: 0, count: 0 });
       continue;
     }
-    const info = dirSize(target.path, { limit: 60000 });
+    const info = await dirSizeAsync(target.path, { limit: 60000 });
     out.push({ ...target, available: true, size: info.size, count: info.count, truncated: info.truncated });
   }
   return {
@@ -68,7 +72,7 @@ async function clean(params, ctx) {
   for (const target of targets) {
     let entries;
     try {
-      entries = fs.readdirSync(target.path, { withFileTypes: true });
+      entries = await fs.promises.readdir(target.path, { withFileTypes: true });
     } catch (err) {
       skipped.push({ path: target.path, error: err.message });
       continue;
@@ -84,13 +88,13 @@ async function clean(params, ctx) {
       }
       let size = 0;
       try {
-        const st = fs.lstatSync(inside);
-        size = st.isDirectory() ? dirSize(inside, { limit: 20000 }).size : st.size;
+        const st = await fs.promises.lstat(inside);
+        size = st.isDirectory() ? (await dirSizeAsync(inside, { limit: 20000 })).size : st.size;
       } catch {
         size = 0;
       }
       try {
-        if (permanent) fs.rmSync(inside, { recursive: true, force: true });
+        if (permanent) await fs.promises.rm(inside, { recursive: true, force: true });
         else await ctx.trash(inside);
         removed++;
         freed += size;

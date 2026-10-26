@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const safe = require('../core/safe');
-const { walkFiles } = require('../core/walk');
+const { walkFilesAsync } = require('../core/walk');
 const { parseFile } = require('music-metadata');
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.aac', '.ogg', '.m4a', '.wma', '.opus']);
@@ -20,7 +20,7 @@ async function mapLimit(items, limit, mapper) {
 }
 
 async function fileInfoWithTags(filePath) {
-  const info = fileInfo(filePath);
+  const info = await fileInfo(filePath);
   if (!AUDIO_EXTENSIONS.has(path.extname(filePath).toLowerCase())) return info;
   try {
     const { common } = await parseFile(filePath, { duration: false });
@@ -37,8 +37,8 @@ async function fileInfoWithTags(filePath) {
   return info;
 }
 
-function fileInfo(filePath) {
-  const stat = fs.statSync(filePath);
+async function fileInfo(filePath) {
+  const stat = await fs.promises.stat(filePath);
   return {
     name: path.basename(filePath),
     ext: path.extname(filePath).slice(1).toLowerCase(),
@@ -52,10 +52,10 @@ function fileInfo(filePath) {
 async function readFolder(params) {
   const folder = safe.existingDir(params.folder);
   if (params.recursive === true) {
-    const res = walkFiles(folder, { recursive: true, limit: 5000 });
+    const res = await walkFilesAsync(folder, { recursive: true, limit: 5000 });
     return { folder, files: await mapLimit(res.files, 8, async file => ({ ...await fileInfoWithTags(file.path), relativePath: path.relative(folder, file.path) })) };
   }
-  const files = fs.readdirSync(folder, { withFileTypes: true })
+  const files = (await fs.promises.readdir(folder, { withFileTypes: true }))
     .filter(entry => entry.isFile())
     .map(entry => path.join(folder, entry.name));
   return {

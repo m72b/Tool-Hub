@@ -2,7 +2,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const safe = require('../core/safe');
-const { walkFiles } = require('../core/walk');
+const { walkFilesAsync } = require('../core/walk');
 
 function hashFile(file) {
   return new Promise(resolve => {
@@ -14,8 +14,8 @@ function hashFile(file) {
   });
 }
 
-function index(root, recursive) {
-  const res = walkFiles(root, { recursive });
+async function index(root, recursive) {
+  const res = await walkFilesAsync(root, { recursive });
   const map = new Map();
   for (const f of res.files) {
     map.set(path.relative(root, f.path).split(path.sep).join('/'), f);
@@ -30,8 +30,7 @@ async function compare(params) {
   const mode = ['name', 'size', 'hash'].includes(params.mode) ? params.mode : 'size';
   const recursive = params.recursive !== false;
 
-  const a = index(left, recursive);
-  const b = index(right, recursive);
+  const [a, b] = await Promise.all([index(left, recursive), index(right, recursive)]);
 
   const onlyLeft = [];
   const onlyRight = [];

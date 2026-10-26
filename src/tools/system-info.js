@@ -9,26 +9,22 @@ function formatUptime(seconds) {
   return `${d}d ${h}h ${m}m`;
 }
 
-function volumeRoots(platform) {
+async function volumeRoots(platform) {
   if (platform !== 'win32') return ['/'];
   const roots = [];
-  for (let i = 65; i <= 90; i++) {
-    const root = `${String.fromCharCode(i)}:\\`;
-    try {
-      fs.accessSync(root);
-      roots.push(root);
-    } catch {
-      continue;
-    }
-  }
+  await Promise.all(Array.from({ length: 26 }, async (_, i) => {
+    const root = `${String.fromCharCode(65 + i)}:\\`;
+    try { await fs.promises.access(root); roots.push(root); } catch {}
+  }));
+  roots.sort();
   return roots.length > 0 ? roots : ['C:\\'];
 }
 
-function storage(platform) {
+async function storage(platform) {
   const out = [];
-  for (const root of volumeRoots(platform)) {
+  for (const root of await volumeRoots(platform)) {
     try {
-      const st = fs.statfsSync(root);
+      const st = await fs.promises.statfs(root);
       const total = st.blocks * st.bsize;
       const free = st.bavail * st.bsize;
       if (total <= 0) continue;
@@ -91,7 +87,7 @@ async function get(params, ctx) {
       used: os.totalmem() - os.freemem(),
       percent: Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 1000) / 10,
     },
-    storage: storage(ctx.platform),
+    storage: await storage(ctx.platform),
     extras: null,
   };
   if (ctx.platform === 'win32') {
