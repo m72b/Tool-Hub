@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const safe = require('../core/safe');
 
-async function scan(params) {
+async function scan(params, ctx = {}) {
   const root = safe.existingDir(params.root);
   const recursive = params.recursive !== false;
   const stack = [{ dir: root, depth: 0, visited: false }];
@@ -10,6 +10,7 @@ async function scan(params) {
   const directories = [];
   let scanned = 0;
   while (stack.length) {
+    if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
     const current = stack.pop();
     if (!current.visited) {
       let entries;
@@ -24,6 +25,7 @@ async function scan(params) {
       continue;
     }
     scanned++;
+    if (ctx.progress && scanned % 50 === 0) ctx.progress({ scanned, directories: scanned });
     const emptyAfterCleanup = current.entries.every(entry => entry.isDirectory() && cleanable.get(path.join(current.dir, entry.name)) === true);
     cleanable.set(current.dir, emptyAfterCleanup);
     if (current.dir !== root && emptyAfterCleanup) directories.push({ path: current.dir, name: path.basename(current.dir), depth: current.depth });

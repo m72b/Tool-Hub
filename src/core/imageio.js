@@ -21,12 +21,14 @@ const MIME_BY_EXT = {
 };
 const MAX_READ = 64 * 1024 * 1024;
 
-async function listImages(params) {
+async function listImages(params, ctx = {}) {
   const folder = safe.existingDir(params.folder);
   const recursive = params.recursive === true;
   const res = await walkFilesAsync(folder, {
     recursive,
     limit: 5000,
+    signal: ctx.signal,
+    onProgress: ctx.progress,
     filter: f => READ_EXT.includes(f.ext),
   });
   return {

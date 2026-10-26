@@ -11,6 +11,19 @@
     { label: '1 GB', value: 1073741824 },
   ];
 
+  function makeTiles(items, x, y, width, height, out = []) {
+    if (!items.length || width <= 0 || height <= 0) return out;
+    if (items.length === 1) { out.push({ ...items[0], x, y, width, height }); return out; }
+    const total = items.reduce((sum, item) => sum + Math.max(1, item.size), 0);
+    let accumulated = Math.max(1, items[0].size), split = 1;
+    while (split < items.length - 1 && accumulated < total / 2) accumulated += Math.max(1, items[split++].size);
+    const a = items.slice(0, split), b = items.slice(split);
+    const ratio = a.reduce((sum, item) => sum + Math.max(1, item.size), 0) / total;
+    if (width >= height) { const cut = width * ratio; makeTiles(a, x, y, cut, height, out); makeTiles(b, x + cut, y, width - cut, height, out); }
+    else { const cut = height * ratio; makeTiles(a, x, y, width, cut, out); makeTiles(b, x, y + cut, width, height - cut, out); }
+    return out;
+  }
+
   Hub.registerView('duplicates', {
     render(api) {
       return toolShell({
@@ -25,6 +38,7 @@
           {
             type: 'select', key: 'matchBy', label: 'Match by', options: [
               { label: 'File contents (hash)', value: 'hash' },
+              { label: 'Similar images (visual)', value: 'image-similar' },
               { label: 'Name and size', value: 'name-size' },
               { label: 'File name', value: 'name' },
               { label: 'File size', value: 'size' },
@@ -43,6 +57,12 @@
             stat('Reclaimable', fmtBytes(data.wasted), 'warn'),
           ]));
           if (data.truncated) wrap.appendChild(statusNote('Scan hit the file limit; results are partial.', 'warn'));
+          if (data.matchBy === 'image-similar') {
+            const status = statusNote(`Checking visual similarity for ${fmtNumber(data.imageFiles.length)} image(s)…`, 'info');
+            wrap.appendChild(status);
+            findSimilarImages(data.imageFiles, api, ctx, wrap, status);
+            return wrap;
+          }
           if (data.groups.length === 0) {
             wrap.appendChild(empty('No duplicates found.'));
             return wrap;
@@ -118,6 +138,59 @@
     },
   });
 
+  async function findSimilarImages(files, api, ctx, wrap, status) {
+    const hashes = [];
+    try {
+      for (const file of files) {
+        const read = await api.invoke('readImage', { path: file.path });
+        if (!read.ok) continue;
+        const image = await new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = read.data.dataUrl; });
+        const canvas = document.createElement('canvas'); canvas.width = 9; canvas.height = 8;
+        const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(image, 0, 0, 9, 8);
+        const pixels = context.getImageData(0, 0, 9, 8).data; let bits = '';
+        for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+          const a = (y * 9 + x) * 4, b = a + 4;
+          const ga = pixels[a] * .299 + pixels[a + 1] * .587 + pixels[a + 2] * .114;
+          const gb = pixels[b] * .299 + pixels[b + 1] * .587 + pixels[b + 2] * .114;
+          bits += ga > gb ? '1' : '0';
+        }
+        hashes.push({ ...file, bits });
+      }
+      const groups = [];
+      for (const file of hashes) {
+        let group = groups.find(item => {
+          let distance = 0; for (let i = 0; i < 64; i++) if (item.bits[i] !== file.bits[i] && ++distance > 8) return false;
+          return distance <= 8;
+        });
+        if (!group) groups.push(group = { bits: file.bits, files: [] });
+        group.files.push(file);
+      }
+      const similar = groups.filter(group => group.files.length > 1);
+      clear(status);
+      if (!similar.length) { wrap.appendChild(empty('No visually similar images found within the current threshold.')); return; }
+      const selected = new Set(similar.flatMap(group => group.files.slice(1).map(file => file.path)));
+      const remove = h('button', { class: 'btn btn-danger', type: 'button', text: 'Move selected to Recycle Bin', onclick: async () => {
+        if (!selected.size || !window.confirm(`Move ${selected.size} similar image(s) to the Recycle Bin?`)) return;
+        const result = await api.invoke('remove', { roots: [ctx.state.root], paths: [...selected] });
+        if (!result.ok) api.toast(result.error, 'error'); else { api.toast(`Moved ${result.data.removed} image(s)`, result.data.failed.length ? 'warn' : 'ok'); ctx.rerun(); }
+      } });
+      wrap.appendChild(h('div', { class: 'action-row' }, [remove, h('span', { class: 'field-hint', text: `${similar.length} visual groups; hash threshold 8/64 bits` })]));
+      for (const group of similar) {
+        const rows = group.files.map((file, index) => h('div', { class: 'tbl-row' }, [
+          h('input', { type: 'checkbox', checked: selected.has(file.path), onchange: e => e.target.checked ? selected.add(file.path) : selected.delete(file.path) }),
+          h('span', { class: 'ellipsis', text: file.name, title: file.path }),
+          h('span', { class: 'muted ellipsis', text: file.dir }),
+          h('span', { class: 'mono', text: fmtBytes(file.size) }),
+          index === 0 ? h('span', { class: 'tag tag-core', text: 'keep' }) : null
+        ]));
+        wrap.appendChild(h('div', { class: 'group' }, [
+          h('div', { class: 'group-head', text: `${group.files.length} visually similar images` }),
+          h('div', { class: 'group-body' }, rows)
+        ]));
+      }
+    } catch (err) { clear(status); wrap.appendChild(statusNote(`Could not compare images: ${err.message}`, 'error')); }
+  }
+
   Hub.registerView('large-files', {
     render(api) {
       return toolShell({
@@ -183,11 +256,17 @@
 
       const pathBar = h('div', { class: 'path-bar' });
       const results = h('div', { class: 'results' });
+      const progressStatus = h('span', { class: 'run-status' });
+      let currentJobId = null;
+      const cancelScan = h('button', { class: 'btn btn-sm', type: 'button', text: 'Cancel scan', hidden: true, onclick: () => { if (currentJobId) api.cancel(currentJobId); } });
 
       const load = async root => {
         clear(results);
-        results.appendChild(h('div', { class: 'run-status', text: 'Measuring folder sizes…' }));
-        const res = await api.invoke('scan', { root });
+        currentJobId = `disk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        cancelScan.hidden = false; progressStatus.textContent = 'Measuring folder sizes…';
+        const removeProgress = api.onProgress(currentJobId, detail => { if (detail?.scanned) progressStatus.textContent = `Measuring… ${fmtNumber(detail.scanned)} files checked`; });
+        const res = await api.invoke('scan', { root }, { jobId: currentJobId });
+        removeProgress(); cancelScan.hidden = true; currentJobId = null; progressStatus.textContent = '';
         clear(results);
         if (!res.ok) {
           results.appendChild(statusNote(res.error, 'error'));
@@ -229,13 +308,32 @@
             h('button', { class: 'mini-btn', type: 'button', text: 'Show', onclick: () => api.reveal(child.path) }),
           ]);
         });
-        results.appendChild(table([
+        const listView = table([
           { label: 'Type', width: '56px' },
           { label: 'Name', width: 'minmax(0,1.6fr)' },
           { label: 'Size', width: '100px' },
           { label: 'Share', width: 'minmax(140px,1fr)' },
           { label: '', width: '76px' },
-        ], rows));
+        ], rows);
+        const canvas = h('canvas', { class: 'disk-treemap', width: '1000', height: '480', role: 'img', 'aria-label': 'Disk usage treemap' });
+        const ctx = canvas.getContext('2d');
+        const tiles = makeTiles(data.children.slice(0, 200), 0, 0, canvas.width, canvas.height);
+        const colors = ['#5488e8', '#39ad91', '#e59d47', '#c96b75', '#8c75d9', '#4da8c1', '#9aab51'];
+        for (let i = 0; i < tiles.length; i++) {
+          const tile = tiles[i]; ctx.fillStyle = colors[i % colors.length]; ctx.fillRect(tile.x + 1, tile.y + 1, Math.max(0, tile.width - 2), Math.max(0, tile.height - 2));
+          if (tile.width > 90 && tile.height > 34) { ctx.fillStyle = '#fff'; ctx.font = '13px sans-serif'; ctx.save(); ctx.beginPath(); ctx.rect(tile.x + 8, tile.y + 5, tile.width - 16, tile.height - 10); ctx.clip(); ctx.fillText(tile.name, tile.x + 8, tile.y + 22); ctx.font = '11px sans-serif'; ctx.fillText(fmtBytes(tile.size), tile.x + 8, tile.y + 40); ctx.restore(); }
+        }
+        canvas.addEventListener('click', event => {
+          const rect = canvas.getBoundingClientRect(), x = (event.clientX - rect.left) * canvas.width / rect.width, y = (event.clientY - rect.top) * canvas.height / rect.height;
+          const tile = tiles.find(item => x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height);
+          if (tile?.isDir) load(tile.path);
+        });
+        const views = h('div', { class: 'disk-views' });
+        const treemapButton = h('button', { class: 'btn btn-sm', type: 'button', text: 'Treemap', onclick: () => { clear(views); views.appendChild(canvas); } });
+        const listButton = h('button', { class: 'btn btn-sm', type: 'button', text: 'List', onclick: () => { clear(views); views.appendChild(listView); } });
+        results.appendChild(h('div', { class: 'action-row' }, [treemapButton, listButton]));
+        views.appendChild(listView);
+        results.appendChild(views);
       };
 
       const pick = h('button', {
@@ -249,7 +347,7 @@
       container.appendChild(head);
       container.appendChild(h('div', { class: 'controls' }, [
         h('div', { class: 'controls-fields' }, [pathBar]),
-        h('div', { class: 'controls-actions' }, [pick]),
+        h('div', { class: 'controls-actions' }, [pick, cancelScan, progressStatus]),
       ]));
       container.appendChild(results);
       results.appendChild(empty('Choose a folder to begin.'));

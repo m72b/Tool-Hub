@@ -88,15 +88,17 @@
   Hub.registerView('secure-delete', { render(api) {
     const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
     let files = [];
+    const dryRun = h('input', { type: 'checkbox', checked: true, onchange: e => { shred.textContent = e.target.checked ? 'Preview secure delete' : 'Overwrite and delete'; } });
     const choose = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose files…', onclick: async () => { files = await api.pickFiles() || []; results.textContent = `${files.length} file(s) selected`; } });
-    const shred = h('button', { class: 'btn btn-danger', type: 'button', text: 'Overwrite and delete', onclick: async () => {
+    const shred = h('button', { class: 'btn btn-danger', type: 'button', text: 'Preview secure delete', onclick: async () => {
+      if (dryRun.checked) { api.toast(`Preview: ${files.length} file(s), ${fmtBytes(files.reduce((sum, file) => sum + file.size, 0))}. No files changed.`, 'info'); return; }
       if (!files.length || !window.confirm(`Overwrite and permanently delete ${files.length} file(s)? This cannot be undone.`)) return;
       if (!window.confirm('Overwriting is not reliable on SSDs, flash storage, copy-on-write filesystems, or cloud-synced drives. Continue?')) return;
       shred.disabled = true; const result = await api.invoke('shred', { paths: files.map(f => f.path) }); shred.disabled = false;
       if (!result.ok) api.toast(result.error, 'error'); else api.toast(`Deleted ${result.data.deleted}; ${result.data.failed.length} failed`, result.data.failed.length ? 'warn' : 'ok');
     } });
     root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Secure Delete' }), h('p', { class: 'tool-desc', text: 'Overwrites selected file contents and permanently deletes them. This cannot guarantee recovery is impossible, especially on SSDs.' })]));
-    root.appendChild(h('div', { class: 'action-row' }, [choose, shred])); root.appendChild(results); return root;
+    root.appendChild(h('div', { class: 'action-row' }, [choose, h('label', { class: 'field field-inline' }, [dryRun, h('span', { text: 'Preview only' })]), shred])); root.appendChild(results); return root;
   } });
 
   Hub.registerView('watch-folder', { render(api) {
@@ -158,6 +160,40 @@
     root.appendChild(h('div', { class: 'action-row' }, [pick, chosen, check])); root.appendChild(results); return root;
   } });
 
+  Hub.registerView('disk-benchmark', { render(api) {
+    return toolShell({
+      title: 'Disk Benchmark', description: 'Write and read a temporary test file, then remove it. Results are sequential speed estimates and can vary with cache, encryption, and background load.',
+      action: 'run', runLabel: 'Start benchmark', busyLabel: 'Benchmarking…', defaults: { root: '', sizeMiB: 128 },
+      fields: [{ type: 'folder', key: 'root', label: 'Drive folder to test', wide: true }, { type: 'select', key: 'sizeMiB', label: 'Test file size', numeric: true, options: [64, 128, 256, 512].map(size => ({ label: `${size} MiB`, value: size })) }],
+      validate: state => state.root ? null : 'Choose a folder on the drive to test', params: state => ({ root: state.root, sizeMiB: state.sizeMiB }),
+      render(data) { return h('div', { class: 'stat-row' }, [stat('Sequential write', `${data.writeMiBs} MiB/s`), stat('Sequential read', `${data.readMiBs} MiB/s`), stat('Test size', `${data.sizeMiB} MiB`)]); },
+    }, api);
+  } });
+
+  Hub.registerView('scheduled-cleanup', { render(api) {
+    const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
+    const selected = new Set(); let scanData = null;
+    const day = h('select', { class: 'input' }, [['SUN','Sunday'],['MON','Monday'],['TUE','Tuesday'],['WED','Wednesday'],['THU','Thursday'],['FRI','Friday'],['SAT','Saturday']].map(([value,label]) => h('option', { value, text: label })));
+    const time = h('input', { class: 'input', type: 'time', value: '03:00' });
+    const remove = h('button', { class: 'btn btn-sm btn-danger', type: 'button', text: 'Remove schedule', onclick: async () => { const result = await api.invoke('remove', {}); if (!result.ok) api.toast(result.error, 'error'); else api.toast('Weekly cleanup schedule removed', 'ok'); refreshStatus(); } });
+    const refreshStatus = async () => { const status = await api.invoke('status', {}); const label = document.getElementById('scheduled-cleanup-status'); if (label) label.textContent = status.ok && status.data.installed ? `Scheduled task found.\n${status.data.details}` : 'No weekly cleanup task is installed.'; };
+    const drawTargets = data => {
+      scanData = data; clear(results);
+      results.appendChild(h('div', { class: 'stat-row' }, [stat('Available targets', fmtNumber(data.targets.filter(x => x.available).length))]));
+      results.appendChild(table([{ label: '', width: '32px' }, { label: 'Location', width: 'minmax(0,1fr)' }, { label: 'Size', width: '110px' }], data.targets.map(target => h('div', { class: 'tbl-row' }, [h('input', { type: 'checkbox', disabled: !target.available, onchange: e => e.target.checked ? selected.add(target.id) : selected.delete(target.id) }), h('span', { class: 'ellipsis', text: target.label, title: target.path }), h('span', { class: 'mono', text: target.available ? fmtBytes(target.size) : 'n/a' })]))));
+    };
+    const create = h('button', { class: 'btn btn-accent', type: 'button', text: 'Schedule weekly cleanup', onclick: async () => {
+      if (!selected.size) { api.toast('Select at least one location', 'error'); return; }
+      if (!window.confirm(`Create a weekly cleanup for ${selected.size} location(s)? Files are sent to the Recycle Bin.`)) return;
+      create.disabled = true; const result = await api.invoke('create', { ids: [...selected], day: day.value, time: time.value }); create.disabled = false;
+      if (!result.ok) api.toast(result.error, 'error'); else { api.toast(`Scheduled for ${result.data.day} at ${result.data.time}`, 'ok'); refreshStatus(); }
+    } });
+    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Scheduled Cleanup' }), h('p', { class: 'tool-desc', text: 'Create a Windows weekly task to send selected temporary and browser-cache files to the Recycle Bin.' })]));
+    const status = h('pre', { class: 'status-note', id: 'scheduled-cleanup-status', text: 'Checking scheduled task…' }); root.appendChild(status);
+    root.appendChild(h('div', { class: 'action-row' }, [day, time, create, remove])); root.appendChild(results);
+    api.invoke('targets', {}).then(result => { if (result.ok) drawTargets(result.data); else results.appendChild(statusNote(result.error, 'error')); }); refreshStatus(); return root;
+  } });
+
   Hub.registerView('pdf-tools', { render(api) {
     const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
     let paths = [], outputDir = '', path = '';
@@ -190,6 +226,7 @@
     let folder = '', images = [];
     const mode = h('select', { class: 'input' }, [h('option', { value: 'strip', text: 'Strip metadata (re-encode)' }), h('option', { value: 'watermark', text: 'Add visible watermark' }), h('option', { value: 'pdf', text: 'Create PDF from images' })]);
     const watermark = h('input', { class: 'input', type: 'text', placeholder: 'Watermark text' });
+    const dryRun = h('input', { type: 'checkbox', checked: true });
     const choose = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose folder', onclick: async () => { const selected = await api.pickFolder('Choose image folder'); if (selected) { folder = selected; const res = await api.invoke('listImages', { folder, recursive: true }); if (!res.ok) api.toast(res.error, 'error'); else { images = res.data.files.filter(file => ['jpg', 'jpeg', 'png', 'webp'].includes(file.ext)); api.toast(`Found ${images.length} supported image(s)`, 'ok'); renderRows(); } } } });
     function renderRows() { clear(results); results.appendChild(h('div', { class: 'stat-row' }, [stat('Images', fmtNumber(images.length))])); if (!images.length) { results.appendChild(empty('Choose a folder with JPEG, PNG or WebP images.')); return; } results.appendChild(table([{ label: 'Image', width: 'minmax(0,1fr)' }, { label: 'Size', width: '100px' }], images.map(file => h('div', { class: 'tbl-row' }, [h('span', { class: 'ellipsis', text: file.name, title: file.path }), h('span', { class: 'mono', text: fmtBytes(file.size) })])))); }
     const process = h('button', { class: 'btn btn-accent', type: 'button', text: 'Process images', onclick: async () => {
@@ -205,14 +242,93 @@
           const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
           if (mode.value === 'watermark') { const size = Math.max(18, Math.round(canvas.width / 28)); ctx.font = `bold ${size}px sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(0,0,0,.58)'; ctx.fillRect(canvas.width * .55, canvas.height - size * 2.2, canvas.width * .42, size * 1.8); ctx.fillStyle = '#fff'; ctx.fillText(text, canvas.width - size, canvas.height - size * .35, canvas.width * .4); }
           const mime = ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' })[file.ext]; const dataUrl = canvas.toDataURL(mime, .94);
-          const saved = await api.invoke('write', { dir: folder, name: file.name, dataUrl, overwrite: true }); if (!saved.ok) throw new Error(saved.error); done++;
+          if (!dryRun.checked) { const saved = await api.invoke('write', { dir: folder, name: file.name, dataUrl, overwrite: true }); if (!saved.ok) throw new Error(saved.error); }
+          done++;
         } catch { failed++; }
       }
-      process.disabled = false; api.toast(`Processed ${done}; ${failed} failed`, failed ? 'warn' : 'ok');
+      process.disabled = false; api.toast(`${dryRun.checked ? 'Previewed' : 'Processed'} ${done}; ${failed} failed${dryRun.checked ? ' · nothing saved' : ''}`, failed ? 'warn' : 'ok');
     } });
     root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Image Privacy & Watermark' }), h('p', { class: 'tool-desc', text: 'Re-encoding JPEG, PNG and WebP removes embedded metadata. Watermarking edits originals in place; keep a copy if needed.' })]));
-    root.appendChild(h('div', { class: 'field-row' }, [choose, mode, watermark, process])); root.appendChild(results); return root;
+    root.appendChild(h('div', { class: 'field-row' }, [choose, mode, watermark, h('label', { class: 'field field-inline' }, [dryRun, h('span', { text: 'Preview only' })]), process])); root.appendChild(results); return root;
   } });
+
+  Hub.registerView('workflows', { render(api) {
+    const KEY = 'toolhub_workflows_v1';
+    const readWorkflows = () => { try { const value = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(value) ? value.slice(0, 30) : []; } catch { return []; } };
+    let workflows = readWorkflows(), selected = null;
+    const root = h('div', { class: 'tool' }), status = h('div', { class: 'results' });
+    const wfName = h('input', { class: 'input', type: 'text', placeholder: 'Pipeline name' });
+    const folderLabel = h('span', { class: 'path-display empty', text: 'No source folder selected' }); let folder = '';
+    const template = h('input', { class: 'input mono', type: 'text', value: '{original}', placeholder: '{n} - {original}' });
+    const archiveName = h('input', { class: 'input', type: 'text', value: 'archive.zip' });
+    const archiveFolderLabel = h('span', { class: 'path-display empty', text: 'No archive folder selected' }); let archiveFolder = '';
+    const doRename = h('input', { type: 'checkbox' }), doOrganize = h('input', { type: 'checkbox' }), doArchive = h('input', { type: 'checkbox' }), dryRun = h('input', { type: 'checkbox', checked: true });
+    const workflowSelect = h('select', { class: 'input', onchange: () => loadSelected() });
+    const drawWorkflows = () => { clear(workflowSelect); workflowSelect.appendChild(h('option', { value: '', text: 'Choose saved workflow…' })); workflows.forEach((wf, i) => workflowSelect.appendChild(h('option', { value: String(i), text: wf.name }))); };
+    const loadSelected = () => { const wf = workflows[Number(workflowSelect.value)]; selected = wf || null; if (!wf) return; wfName.value = wf.name; template.value = wf.template; doRename.checked = wf.rename; doOrganize.checked = wf.organize; doArchive.checked = wf.archive; archiveName.value = wf.archiveName || 'archive.zip'; };
+    const save = h('button', { class: 'btn btn-sm', type: 'button', text: 'Save workflow', onclick: () => {
+      const name = wfName.value.trim(); if (!name) { api.toast('Enter a workflow name', 'error'); return; }
+      const workflow = { id: selected?.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`, name, rename: doRename.checked, template: template.value || '{original}', organize: doOrganize.checked, archive: doArchive.checked, archiveName: archiveName.value || 'archive.zip' };
+      workflows = [workflow, ...workflows.filter(item => item.id !== workflow.id)].slice(0, 30); localStorage.setItem(KEY, JSON.stringify(workflows)); selected = workflow; drawWorkflows(); workflowSelect.value = '0'; api.toast('Workflow saved', 'ok');
+    } });
+    const pickFolder = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose source folder', onclick: async () => { const result = await api.pickFolder('Workflow source folder'); if (result) { folder = result; folderLabel.textContent = result; folderLabel.classList.remove('empty'); } } });
+    const pickArchiveFolder = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose archive folder', onclick: async () => { const result = await api.pickFolder('Archive output folder'); if (result) { archiveFolder = result; archiveFolderLabel.textContent = result; archiveFolderLabel.classList.remove('empty'); } } });
+    const run = h('button', { class: 'btn btn-accent', type: 'button', text: 'Run workflow', onclick: async () => {
+      const workflow = selected || { rename: doRename.checked, template: template.value, organize: doOrganize.checked, archive: doArchive.checked, archiveName: archiveName.value, name: wfName.value || 'Workflow' };
+      if (!folder) { api.toast('Choose a source folder', 'error'); return; }
+      if (!workflow.rename && !workflow.organize && !workflow.archive) { api.toast('Select at least one workflow step', 'error'); return; }
+      if (workflow.archive && (!archiveFolder || !/^[^\\/:*?"<>|]+\.zip$/i.test(workflow.archiveName))) { api.toast('Choose an archive folder and a valid .zip name', 'error'); return; }
+      const preview = dryRun.checked;
+      if (!preview && !window.confirm(`Run workflow “${workflow.name}” on this folder?`)) return;
+      clear(status); run.disabled = true; let current = folder; const log = [];
+      try {
+        if (workflow.rename) {
+          const scan = await api.invokeTool('renamer', 'readFolder', { folder: current, recursive: true }); if (!scan.ok) throw new Error(scan.error);
+          const items = scan.data.files.map((file, i) => {
+            const { base, ext } = splitName(file.name); let name = String(workflow.template || '{original}').replace(/\{original\}/gi, base).replace(/\{ext\}/gi, ext).replace(/\{n\}/gi, String(i + 1).padStart(2, '0'));
+            if (ext && !name.toLowerCase().endsWith(`.${ext}`)) name += `.${ext}`;
+            name = name.replace(/[\\/:*?"<>|]/g, '_'); return { oldName: file.name, newName: name, relativePath: file.relativePath };
+          }).filter(item => item.oldName !== item.newName);
+          if (preview) log.push(`Would rename ${items.length} file(s) with template “${workflow.template}”.`);
+          else if (items.length) { const changed = await api.invokeTool('renamer', 'renameBatch', { folder: current, items }); if (!changed.ok) throw new Error(changed.error); log.push(`Renamed ${changed.data.renamed} file(s).`); }
+        }
+        if (workflow.organize) {
+          let rules = []; try { rules = JSON.parse(localStorage.getItem('toolhub_org_rules_v1') || '[]').filter(rule => rule.dest); } catch {}
+          if (!rules.length) throw new Error('Save Organizer rules before running the organize step.');
+          const scan = await api.invokeTool('organizer', 'readFolder', { folder: current, recursive: true }); if (!scan.ok) throw new Error(scan.error);
+          let count = 0;
+          for (const file of scan.data.files) {
+            const rule = rules.find(item => workflowRuleMatches(item, file)); if (!rule) continue;
+            const dest = String(rule.dest).replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
+            if (preview) { count++; continue; }
+            const moved = await api.invokeTool('organizer', 'move', { folder: current, relativePath: file.relativePath, fileName: file.name, destFolder: dest }); if (!moved.ok) throw new Error(`${file.name}: ${moved.error}`); count++;
+          }
+          log.push(preview ? `Would organize ${count} file(s) using saved rules.` : `Organized ${count} file(s).`);
+        }
+        if (workflow.archive) {
+          if (preview) log.push(`Would create ${workflow.archiveName} from the processed folder.`);
+          else { const zipped = await api.invokeTool('archive-tool', 'archive', { operation: 'create', root: current, outputDir: archiveFolder, name: workflow.archiveName }); if (!zipped.ok) throw new Error(zipped.error); log.push(`Created ${zipped.data.output}.`); }
+        }
+        status.appendChild(statusNote(`${preview ? 'Preview only — no changes were made. ' : ''}${log.join(' ')}`, preview ? 'info' : 'ok'));
+        const history = JSON.parse(localStorage.getItem('toolhub_workflow_history_v1') || '[]'); history.unshift({ name: workflow.name, at: Date.now(), preview, log }); localStorage.setItem('toolhub_workflow_history_v1', JSON.stringify(history.slice(0, 50)));
+      } catch (err) { status.appendChild(statusNote(err.message, 'error')); }
+      finally { run.disabled = false; }
+    } });
+    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Workflows' }), h('p', { class: 'tool-desc', text: 'Save a sequence of rename, organize and ZIP steps. Runs start in preview mode.' })]));
+    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Saved pipelines' })]), h('div', { class: 'group-body' }, [workflowSelect, wfName]) ]));
+    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Steps' })]), h('div', { class: 'group-body' }, [h('label', { class: 'field field-inline' }, [doRename, h('span', { text: 'Rename using template' })]), template, h('label', { class: 'field field-inline' }, [doOrganize, h('span', { text: 'Organize using saved Organizer rules' })]), h('label', { class: 'field field-inline' }, [doArchive, h('span', { text: 'Compress to ZIP' })]), archiveName, pickArchiveFolder, archiveFolderLabel]) ]));
+    root.appendChild(h('div', { class: 'action-row' }, [pickFolder, folderLabel, h('label', { class: 'field field-inline' }, [dryRun, h('span', { text: 'Preview only' })]), save, run])); root.appendChild(status); drawWorkflows(); return root;
+  } });
+
+  function splitName(name) { const dot = name.lastIndexOf('.'); return dot > 0 ? { base: name.slice(0, dot), ext: name.slice(dot + 1) } : { base: name, ext: '' }; }
+  function workflowRuleMatches(rule, file) {
+    if (rule.type === 'exifDate') { const year = Number(file.tags?.DateTaken?.slice(0, 4)); return Number.isFinite(year) && (!rule.dateFrom || year >= Number(rule.dateFrom)) && (!rule.dateTo || year <= Number(rule.dateTo)); }
+    if (rule.type === 'date') { const year = new Date(file.mtime).getFullYear(); return (!!rule.dateFrom || !!rule.dateTo) && (!rule.dateFrom || year >= Number(rule.dateFrom)) && (!rule.dateTo || year <= Number(rule.dateTo)); }
+    if (rule.type === 'size') { const unit = value => ({ KB: 1024, MB: 1048576, GB: 1073741824 }[value] || 1048576); return (!!rule.sizeMin || !!rule.sizeMax) && (!rule.sizeMin || file.size >= Number(rule.sizeMin) * unit(rule.sizeMinUnit)) && (!rule.sizeMax || file.size <= Number(rule.sizeMax) * unit(rule.sizeMaxUnit)); }
+    const pattern = String(rule.match || '').trim(); if (!pattern) return false;
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+    return new RegExp(pattern.includes('*') || pattern.includes('?') ? `^${escaped}$` : escaped, 'i').test(file.name);
+  }
 
   function loadImage(src) { return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('Could not read image')); image.src = src; }); }
   async function makeImagePdf(images, api) {

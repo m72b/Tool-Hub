@@ -491,6 +491,10 @@
           loadFolder(chosen);
         },
       });
+      document.addEventListener('hub-folder-drop', event => {
+        if (!folderLabel.isConnected || !event.detail || !document.getElementById('content').contains(folderLabel)) return;
+        folderLabel.textContent = event.detail; folderLabel.classList.remove('empty'); loadFolder(event.detail);
+      });
       const includeSubfolders = h('label', { class: 'field field-inline' }, [
         h('input', { type: 'checkbox', checked: false, onchange: e => { state.recursive = e.target.checked; if (state.folder) loadFolder(state.folder); } }),
         h('span', { text: 'Include subfolders' }),
@@ -982,6 +986,10 @@
           folderLabel.textContent = chosen;
           folderLabel.classList.remove('empty');
         },
+      });
+      document.addEventListener('hub-folder-drop', event => {
+        if (!folderLabel.isConnected || !event.detail || !document.getElementById('content').contains(folderLabel)) return;
+        state.folder = event.detail; folderLabel.textContent = event.detail; folderLabel.classList.remove('empty');
       });
       const includeSubfolders = h('label', { class: 'field field-inline' }, [
         h('input', { type: 'checkbox', checked: false, onchange: e => { state.recursive = e.target.checked; } }),

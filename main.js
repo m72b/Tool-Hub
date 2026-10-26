@@ -7,10 +7,23 @@ const { createHost } = require('./src/core/host');
 const RENDERER = path.join(__dirname, 'src', 'renderer', 'index.html');
 const approvedDirectories = new Set();
 const approvedFiles = new Set();
+const activeJobs = new Map();
 
 let mainWindow = null;
 let store = null;
 let host = null;
+const portableMarker = path.join(path.dirname(process.execPath), 'toolhub.portable');
+let portableActive = app.isPackaged && (process.argv.includes('--portable') || fs.existsSync(portableMarker));
+let pendingOpenFolder = null;
+
+if (portableActive) {
+  try {
+    const portableData = path.join(path.dirname(process.execPath), 'data');
+    fs.mkdirSync(portableData, { recursive: true });
+    app.setPath('userData', portableData);
+    if (!fs.existsSync(portableMarker)) fs.writeFileSync(portableMarker, 'portable\n', { flag: 'wx' });
+  } catch (err) { portableActive = false; console.error(`Could not enable portable storage: ${err.message}`); }
+}
 
 function createWindow() {
   const appIcon = path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
@@ -100,14 +113,38 @@ async function trashItem(target) {
   await shell.trashItem(target);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   store = createStore(app.getPath('userData'), process.platform);
   host = createHost({
     store,
     platform: process.platform,
     userData: app.getPath('userData'),
     trash: trashItem,
+    executable: process.execPath,
+    packaged: app.isPackaged,
   });
+  const openFolderIndex = process.argv.indexOf('--open-folder');
+  if (openFolderIndex >= 0) { try { pendingOpenFolder = approveFolder(process.argv[openFolderIndex + 1]); } catch {} }
+  const cliIndex = process.argv.indexOf('--cli');
+  if (cliIndex >= 0) {
+    try { await require('./cli').main(process.argv.slice(cliIndex + 1)); app.exit(process.exitCode || 0); }
+    catch (err) { console.error(`Tool Hub CLI: ${err.message}`); app.exit(1); }
+    return;
+  }
+  const scheduledIndex = process.argv.indexOf('--scheduled-cleanup');
+  if (scheduledIndex >= 0) {
+    const ids = String(process.argv[scheduledIndex + 1] || '').split(',').filter(Boolean);
+    try {
+      const cleaner = require('./src/tools/temp-cleaner');
+      const result = await cleaner.actions.clean({ ids, permanent: false }, { platform: process.platform, trash: trashItem });
+      fs.appendFileSync(path.join(app.getPath('userData'), 'scheduled-cleanup.log'), `${new Date().toISOString()} moved ${result.removed}; skipped ${result.skippedCount}\n`);
+      app.exit(0);
+    } catch (err) {
+      try { fs.appendFileSync(path.join(app.getPath('userData'), 'scheduled-cleanup.log'), `${new Date().toISOString()} failed: ${err.message}\n`); } catch {}
+      app.exit(1);
+    }
+    return;
+  }
   createWindow();
   app.on('activate', () => {
     // macOS: re-create window when dock icon is clicked and no windows are open
@@ -157,6 +194,12 @@ ipcMain.handle('shell:pickFiles', async () => {
   });
 });
 
+ipcMain.handle('shell:approveDrop', async (_event, target) => {
+  if (typeof target !== 'string' || !path.isAbsolute(target)) return null;
+  try { return approveFolder(target); } catch { return null; }
+});
+ipcMain.handle('shell:takeOpenFolder', () => { const folder = pendingOpenFolder; pendingOpenFolder = null; return folder; });
+
 ipcMain.handle('shell:reveal', async (_event, target) => {
   if (!isApprovedPath(target)) return false;
   shell.showItemInFolder(target);
@@ -188,7 +231,43 @@ ipcMain.handle('tool:invoke', async (_event, payload) => {
   if (typeof toolId !== 'string' || typeof action !== 'string') return { ok: false, error: 'Invalid request' };
   try { validateRendererPaths(params || {}); }
   catch (err) { return { ok: false, error: err.message }; }
-  return host.invoke(toolId, action, params);
+  const jobId = typeof payload.jobId === 'string' ? payload.jobId.slice(0, 120) : '';
+  const controller = jobId ? new AbortController() : null;
+  if (controller) activeJobs.set(jobId, { controller, sender: _event.sender.id });
+  try {
+    return await host.invoke(toolId, action, params, {
+      signal: controller?.signal,
+      progress: progress => { if (!controller?.signal.aborted && !_event.sender.isDestroyed()) _event.sender.send('tool:progress', { jobId, progress }); },
+    });
+  } finally { if (controller) activeJobs.delete(jobId); }
+});
+
+ipcMain.handle('tool:cancel', (event, rawId) => {
+  const jobId = typeof rawId === 'string' ? rawId.slice(0, 120) : '';
+  const job = activeJobs.get(jobId);
+  if (!job || job.sender !== event.sender.id) return false;
+  job.controller.abort();
+  return true;
 });
 
 ipcMain.handle('shell:platform', () => process.platform);
+ipcMain.handle('app:portableMode', () => ({ supported: app.isPackaged, enabled: portableActive }));
+ipcMain.handle('app:togglePortable', () => {
+  if (!app.isPackaged) return { ok: false, error: 'Portable mode is available in the installed app only' };
+  try {
+    if (portableActive) {
+      const standardData = path.join(app.getPath('appData'), app.getName());
+      fs.mkdirSync(standardData, { recursive: true });
+      fs.cpSync(app.getPath('userData'), standardData, { recursive: true, force: true });
+      fs.rmSync(portableMarker, { force: true });
+    } else {
+      const portableData = path.join(path.dirname(app.getPath('exe')), 'data');
+      fs.mkdirSync(portableData, { recursive: true });
+      fs.cpSync(app.getPath('userData'), portableData, { recursive: true, force: true });
+      fs.writeFileSync(portableMarker, 'portable\n', { flag: 'wx' });
+    }
+    app.relaunch();
+    app.exit(0);
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
+});

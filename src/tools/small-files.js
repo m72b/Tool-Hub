@@ -6,7 +6,7 @@ const { walkFilesAsync } = require('../core/walk');
 
 async function scan(params, ctx) {
   const root = safe.existingDir(params.root);
-  const walked = await walkFilesAsync(root, { recursive: params.recursive !== false, skipCommonDirs: false, filter: file => file.size === 0 || file.ext === 'lnk' });
+  const walked = await walkFilesAsync(root, { recursive: params.recursive !== false, skipCommonDirs: false, filter: file => file.size === 0 || file.ext === 'lnk', signal: ctx.signal, onProgress: ctx.progress });
   const shortcuts = walked.files.filter(file => file.ext === 'lnk');
   const states = new Map();
   if (ctx.platform === 'win32' && shortcuts.length) {

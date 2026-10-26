@@ -14,8 +14,8 @@ function hashFile(file) {
   });
 }
 
-async function index(root, recursive) {
-  const res = await walkFilesAsync(root, { recursive });
+async function index(root, recursive, ctx = {}) {
+  const res = await walkFilesAsync(root, { recursive, signal: ctx.signal, onProgress: ctx.progress });
   const map = new Map();
   for (const f of res.files) {
     map.set(path.relative(root, f.path).split(path.sep).join('/'), f);
@@ -23,14 +23,14 @@ async function index(root, recursive) {
   return { map, truncated: res.truncated };
 }
 
-async function compare(params) {
+async function compare(params, ctx = {}) {
   const left = safe.existingDir(params.left);
   const right = safe.existingDir(params.right);
   if (left === right) safe.fail('Choose two different folders');
   const mode = ['name', 'size', 'hash'].includes(params.mode) ? params.mode : 'size';
   const recursive = params.recursive !== false;
 
-  const [a, b] = await Promise.all([index(left, recursive), index(right, recursive)]);
+  const [a, b] = await Promise.all([index(left, recursive, ctx), index(right, recursive, ctx)]);
 
   const onlyLeft = [];
   const onlyRight = [];
@@ -38,6 +38,7 @@ async function compare(params) {
   const identical = [];
 
   for (const [rel, file] of a.map) {
+    if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
     const other = b.map.get(rel);
     if (!other) {
       onlyLeft.push({ rel, size: file.size, mtime: file.mtime });
@@ -52,6 +53,7 @@ async function compare(params) {
       }
     }
     if (same && mode === 'hash') {
+      if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
       const [h1, h2] = [await hashFile(file.path), await hashFile(other.path)];
       if (h1 === null || h2 === null || h1 !== h2) {
         same = false;

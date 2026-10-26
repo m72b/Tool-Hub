@@ -11,9 +11,9 @@ const SIGNATURES = [
   { ext: 'mp3', bytes: [0x49, 0x44, 0x33] },
 ];
 
-async function fileTypeScan(params) {
+async function fileTypeScan(params, ctx = {}) {
   const root = safe.existingDir(params.root);
-  const walked = await walkFilesAsync(root, { recursive: params.recursive !== false, skipCommonDirs: false, limit: 100000 });
+  const walked = await walkFilesAsync(root, { recursive: params.recursive !== false, skipCommonDirs: false, limit: 100000, signal: ctx.signal, onProgress: ctx.progress });
   const findings = [];
   for (const file of walked.files) {
     let handle;
@@ -60,10 +60,10 @@ async function fixExtensions(params) {
   return { renamed: results.filter(row => row.ok).length, failed: results.filter(row => !row.ok) };
 }
 
-async function syncPlan(params) {
+async function syncPlan(params, ctx = {}) {
   const source = safe.existingDir(params.source), destination = safe.existingDir(params.destination);
   if (source.toLowerCase() === destination.toLowerCase() || safe.isInside(source, destination) || safe.isInside(destination, source)) safe.fail('Choose separate folders that do not contain one another');
-  const [left, right] = await Promise.all([walkFilesAsync(source, { skipCommonDirs: false }), walkFilesAsync(destination, { skipCommonDirs: false })]);
+  const [left, right] = await Promise.all([walkFilesAsync(source, { skipCommonDirs: false, signal: ctx.signal, onProgress: ctx.progress }), walkFilesAsync(destination, { skipCommonDirs: false, signal: ctx.signal, onProgress: ctx.progress })]);
   const destMap = new Map(right.files.map(file => [path.relative(destination, file.path).toLowerCase(), file]));
   const copies = [];
   for (const file of left.files) {

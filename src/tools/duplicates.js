@@ -3,8 +3,9 @@ const crypto = require('crypto');
 const path = require('path');
 const safe = require('../core/safe');
 const { walkFilesAsync } = require('../core/walk');
+const imageio = require('../core/imageio');
 
-function hashFile(file, bytes) {
+function hashFile(file, bytes, signal) {
   return new Promise(resolve => {
     const hash = crypto.createHash('sha256');
     const opts = bytes ? { start: 0, end: bytes - 1 } : {};
@@ -12,6 +13,7 @@ function hashFile(file, bytes) {
     stream.on('data', chunk => hash.update(chunk));
     stream.on('end', () => resolve(hash.digest('hex')));
     stream.on('error', () => resolve(null));
+    if (signal) signal.addEventListener('abort', () => stream.destroy(), { once: true });
   });
 }
 
@@ -32,20 +34,20 @@ function keepDuplicates(map) {
   return out;
 }
 
-async function scan(params) {
+async function scan(params, ctx = {}) {
   const roots = (Array.isArray(params.roots) ? params.roots : [params.root])
     .filter(Boolean)
     .map(r => safe.existingDir(r));
   if (roots.length === 0) safe.fail('Choose at least one folder');
 
-  const matchBy = ['hash', 'size', 'name', 'name-size'].includes(params.matchBy) ? params.matchBy : 'hash';
+  const matchBy = ['hash', 'size', 'name', 'name-size', 'image-similar'].includes(params.matchBy) ? params.matchBy : 'hash';
   const minSize = safe.toNumber(params.minSize, 1, 0);
   const recursive = params.recursive !== false;
 
   const all = [];
   let truncated = false;
   for (const root of roots) {
-    const res = await walkFilesAsync(root, { recursive, filter: f => f.size >= minSize });
+    const res = await walkFilesAsync(root, { recursive, filter: f => f.size >= minSize, signal: ctx.signal, onProgress: ctx.progress });
     all.push(...res.files);
     if (res.truncated) truncated = true;
   }
@@ -56,6 +58,11 @@ async function scan(params) {
     seen.add(f.path);
     return true;
   });
+
+  if (matchBy === 'image-similar') {
+    const imageFiles = files.filter(file => ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'avif'].includes(file.ext)).map(file => ({ path: file.path, name: file.name, dir: file.dir, size: file.size, mtime: file.mtime }));
+    return { groups: [], totalGroups: 0, scanned: files.length, wasted: 0, truncated, matchBy, imageFiles };
+  }
 
   let groups;
   if (matchBy === 'name') {
@@ -70,7 +77,8 @@ async function scan(params) {
     for (const list of bySize.values()) candidates.push(...list);
     const partial = new Map();
     for (const file of candidates) {
-      const h = await hashFile(file.path, 65536);
+      if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
+      const h = await hashFile(file.path, 65536, ctx.signal);
       if (!h) continue;
       const key = `${file.size}:${h}`;
       if (!partial.has(key)) partial.set(key, []);
@@ -79,7 +87,8 @@ async function scan(params) {
     const full = new Map();
     for (const [, list] of keepDuplicates(partial)) {
       for (const file of list) {
-        const h = file.size <= 65536 ? await hashFile(file.path, 65536) : await hashFile(file.path);
+        if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
+        const h = file.size <= 65536 ? await hashFile(file.path, 65536, ctx.signal) : await hashFile(file.path, undefined, ctx.signal);
         if (!h) continue;
         if (!full.has(h)) full.set(h, []);
         full.get(h).push(file);
@@ -137,4 +146,4 @@ async function remove(params, ctx) {
   };
 }
 
-module.exports = { id: 'duplicates', actions: { scan, remove } };
+module.exports = { id: 'duplicates', actions: { scan, remove, readImage: imageio.read } };

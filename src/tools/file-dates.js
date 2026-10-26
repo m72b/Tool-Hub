@@ -13,10 +13,10 @@ function parseDate(value) {
   return d;
 }
 
-async function list(params) {
+async function list(params, ctx = {}) {
   const folder = safe.existingDir(params.folder);
   const recursive = params.recursive === true;
-  const res = await walkFilesAsync(folder, { recursive, limit: 5000 });
+  const res = await walkFilesAsync(folder, { recursive, limit: 5000, signal: ctx.signal, onProgress: ctx.progress });
   return {
     folder,
     files: res.files.map(f => ({

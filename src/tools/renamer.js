@@ -104,10 +104,10 @@ async function fileInfo(filePath) {
   };
 }
 
-async function readFolder(params) {
+async function readFolder(params, ctx = {}) {
   const folder = safe.existingDir(params.folder);
   if (params.recursive === true) {
-    const res = await walkFilesAsync(folder, { recursive: true, limit: 5000 });
+    const res = await walkFilesAsync(folder, { recursive: true, limit: 5000, signal: ctx.signal, onProgress: ctx.progress });
     return { folder, truncated: res.truncated, files: await mapLimit(res.files, 8, async file => ({ ...await fileInfoWithTags(file.path), relativePath: path.relative(folder, file.path) })) };
   }
   const files = (await fs.promises.readdir(folder, { withFileTypes: true }))

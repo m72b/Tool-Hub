@@ -159,20 +159,24 @@ async function walkFilesAsync(root, options = {}) {
   const {
     recursive = true, maxDepth = Infinity, limit = DEFAULT_LIMIT,
     followSymlinks = false, skipHidden = false, includeDirs = false,
-    onError = null, filter = null, skipCommonDirs = true, skipDirs = null,
+    onError = null, filter = null, skipCommonDirs = true, skipDirs = null, signal = null, onProgress = null,
   } = options;
   const results = [];
   const seenDirs = new Set();
   const stack = [{ dir: path.resolve(root), depth: 0 }];
   let truncated = false;
   let scanned = 0;
+  let visitedDirs = 0;
   while (stack.length > 0) {
+    if (signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
     if (results.length >= limit) { truncated = true; break; }
     const { dir, depth } = stack.pop();
     let key = dir;
     if (followSymlinks) { try { key = await fs.promises.realpath(dir); } catch {} }
     if (seenDirs.has(key)) continue;
     seenDirs.add(key);
+    visitedDirs++;
+    if (onProgress && (visitedDirs === 1 || visitedDirs % 8 === 0)) onProgress({ scanned, directories: visitedDirs, found: results.length });
     let entries;
     try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); }
     catch (err) { if (onError) onError({ path: dir, message: err.message }); continue; }
@@ -195,6 +199,8 @@ async function walkFilesAsync(root, options = {}) {
       }
       if (!isFile) continue;
       scanned++;
+      if (signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
+      if (onProgress && scanned % 250 === 0) onProgress({ scanned, directories: visitedDirs, found: results.length });
       let stat;
       try { stat = await fs.promises.stat(full); }
       catch (err) { if (onError) onError({ path: full, message: err.message }); continue; }
@@ -202,15 +208,17 @@ async function walkFilesAsync(root, options = {}) {
       if (!filter || filter(record)) results.push(record);
     }
   }
+  if (onProgress) onProgress({ scanned, directories: visitedDirs, found: results.length, done: true });
   return { files: results, truncated, scanned };
 }
 
 async function dirSizeAsync(root, options = {}) {
-  const { limit = DEFAULT_LIMIT, skipCommonDirs = true, skipDirs = null } = options;
+  const { limit = DEFAULT_LIMIT, skipCommonDirs = true, skipDirs = null, signal = null, onProgress = null } = options;
   let total = 0, count = 0;
   const stack = [path.resolve(root)];
   const seen = new Set();
   while (stack.length) {
+    if (signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
     const dir = stack.pop();
     if (seen.has(dir)) continue;
     seen.add(dir);
@@ -222,9 +230,10 @@ async function dirSizeAsync(root, options = {}) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) { if (!skipDir(entry.name, { skipCommonDirs, skipDirs })) stack.push(full); continue; }
       if (!entry.isFile()) continue;
-      try { total += (await fs.promises.stat(full)).size; count++; } catch {}
+      try { total += (await fs.promises.stat(full)).size; count++; if (onProgress && count % 250 === 0) onProgress({ scanned: count, directories: seen.size }); } catch {}
     }
   }
+  if (onProgress) onProgress({ scanned: count, directories: seen.size, done: true });
   return { size: total, count, truncated: false };
 }
 

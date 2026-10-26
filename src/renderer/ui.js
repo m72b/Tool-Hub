@@ -128,6 +128,13 @@ function buildField(field, state, onChange) {
       display.classList.remove('empty');
     }
     control = h('div', { class: 'field-row' }, [pick, display]);
+    control.addEventListener('hub-folder-drop', event => {
+      if (typeof event.detail !== 'string') return;
+      state[field.key] = event.detail;
+      display.textContent = event.detail;
+      display.classList.remove('empty');
+      if (onChange) onChange();
+    });
   } else if (field.type === 'select') {
     const sel = h('select', {
       class: 'input',
@@ -238,11 +245,16 @@ function toolShell(def, api) {
   const state = { ...(def.defaults || {}) };
   const results = h('div', { class: 'results' });
   const status = h('div', { class: 'run-status' });
+  const progress = h('div', { class: 'scan-progress', hidden: true }, [h('span', { class: 'scan-progress-fill' })]);
+  let currentJobId = null;
 
   const setBusy = (busy, label) => {
     runBtn.disabled = busy;
     runBtn.textContent = busy ? (label || 'Working…') : def.runLabel || 'Run';
     status.textContent = busy ? (label || 'Working…') : '';
+    progress.hidden = !busy;
+    cancelBtn.hidden = !busy;
+    if (busy) { progress.firstChild.style.animation = ''; progress.firstChild.style.width = ''; }
   };
 
   const render = data => {
@@ -270,9 +282,18 @@ function toolShell(def, api) {
       }
     }
     setBusy(true, def.busyLabel);
+    currentJobId = `job-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let removeProgress = null;
     try {
       const params = def.params ? def.params(state) : { ...state };
-      const res = await api.invoke(def.action, params);
+      removeProgress = api.onProgress ? api.onProgress(currentJobId, detail => {
+        if (detail?.completed && detail?.total) {
+          status.textContent = `${detail.phase === 'read' ? 'Reading' : 'Writing'} ${fmtBytes(detail.completed)} of ${fmtBytes(detail.total)}`;
+          const fill = progress.firstChild;
+          fill.style.animation = 'none'; fill.style.width = `${Math.min(100, detail.completed * 100 / detail.total)}%`;
+        } else status.textContent = detail?.scanned ? `${def.busyLabel || 'Working…'} ${fmtNumber(detail.scanned)} entries checked` : def.busyLabel || 'Working…';
+      }) : null;
+      const res = await api.invoke(def.action, params, { jobId: currentJobId });
       if (!res.ok) {
         clear(results);
         results.appendChild(statusNote(res.error, 'error'));
@@ -283,16 +304,19 @@ function toolShell(def, api) {
       clear(results);
       results.appendChild(statusNote(err && err.message ? err.message : 'The operation failed.', 'error'));
     } finally {
+      if (removeProgress) removeProgress();
+      currentJobId = null;
       setBusy(false);
     }
   };
 
   const fields = (def.fields || []).map(f => buildField(f, state, def.liveRun ? run : null));
   const runBtn = h('button', { class: 'btn btn-accent', type: 'button', text: def.runLabel || 'Run', onclick: run });
+  const cancelBtn = h('button', { class: 'btn btn-sm', type: 'button', text: 'Cancel', hidden: true, onclick: () => { if (currentJobId && api.cancel) api.cancel(currentJobId); } });
 
   const controls = h('div', { class: 'controls' }, [
     h('div', { class: 'controls-fields' }, fields),
-    h('div', { class: 'controls-actions' }, [runBtn, status]),
+    h('div', { class: 'controls-actions' }, [runBtn, cancelBtn, status, progress]),
   ]);
 
   const root = h('div', { class: 'tool' }, [

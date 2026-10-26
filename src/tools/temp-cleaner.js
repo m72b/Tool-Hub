@@ -52,7 +52,7 @@ function candidates(platform) {
   return list;
 }
 
-async function scan(params, ctx) {
+async function scan(params, ctx = {}) {
   const targets = candidates(ctx.platform);
   const out = [];
   for (const target of targets) {
@@ -66,7 +66,7 @@ async function scan(params, ctx) {
       out.push({ ...target, available: false, size: 0, count: 0 });
       continue;
     }
-    const info = await dirSizeAsync(target.path, { limit: 60000 });
+    const info = await dirSizeAsync(target.path, { limit: 60000, signal: ctx.signal, onProgress: ctx.progress });
     out.push({ ...target, available: true, size: info.size, count: info.count, truncated: info.truncated });
   }
   return {

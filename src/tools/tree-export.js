@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const safe = require('../core/safe');
 
-async function exportTree(params) {
+async function exportTree(params, ctx = {}) {
   const root = safe.existingDir(params.root);
   const maxDepth = safe.toInt(params.maxDepth, 20, 1, 100);
   const includeFiles = params.includeFiles !== false;
@@ -12,9 +12,11 @@ async function exportTree(params) {
   let count = 0;
   let truncated = false;
   while (stack.length) {
+    if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }
     const current = stack.pop();
     let entries;
     try { entries = await fs.promises.readdir(current.dir, { withFileTypes: true }); } catch { continue; }
+    ctx.progress?.({ scanned: count, directories: stack.length + 1 });
     entries = entries.filter(entry => !entry.isSymbolicLink() && (entry.isDirectory() || (includeFiles && entry.isFile()))).sort((a, b) => a.name.localeCompare(b.name));
     for (let i = entries.length - 1; i >= 0; i--) {
       const entry = entries[i];

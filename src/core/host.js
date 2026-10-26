@@ -34,12 +34,15 @@ const MODULE_FILES = {
   'file-locks': 'advanced-files',
   'pdf-tools': 'pdf-tools',
   'watch-folder': 'watch-folder',
+  'scheduled-cleanup': 'scheduled-cleanup',
+  'disk-benchmark': 'disk-benchmark',
+  workflows: 'utilities',
 };
 
 function createHost(options) {
-  const { store, platform, userData, trash } = options;
+  const { store, platform, userData, trash, executable, packaged } = options;
   const loaded = new Map();
-  const ctx = { platform, userData, trash };
+  const ctx = { platform, userData, trash, executable, packaged };
 
   function loadTool(id) {
     if (loaded.has(id)) return loaded.get(id);
@@ -50,7 +53,7 @@ function createHost(options) {
     return mod;
   }
 
-  async function invoke(toolId, action, params) {
+  async function invoke(toolId, action, params, options = {}) {
     const tool = registry.getTool(toolId);
     if (!tool) return { ok: false, error: 'Unknown tool' };
     if (!registry.isSupported(tool, platform)) return { ok: false, error: `${tool.name} is not available on this platform` };
@@ -61,9 +64,10 @@ function createHost(options) {
     if (typeof handler !== 'function') return { ok: false, error: 'Unknown action' };
     const safeParams = params && typeof params === 'object' ? params : {};
     try {
-      const data = await handler(safeParams, ctx);
+      const data = await handler(safeParams, { ...ctx, signal: options.signal, progress: options.progress });
       return { ok: true, data };
     } catch (err) {
+      if (options.signal?.aborted || err?.name === 'AbortError') return { ok: false, error: 'Operation cancelled' };
       if (err instanceof safe.SafeError) return { ok: false, error: err.message };
       return { ok: false, error: err && err.message ? err.message : 'Unexpected error' };
     }

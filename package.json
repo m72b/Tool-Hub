@@ -4,8 +4,10 @@
   "author": "m72b",
   "description": "m72b Tool Hub - modular file, cleanup and system utilities",
   "main": "main.js",
+  "bin": { "toolhub": "./cli.js" },
   "scripts": {
     "start": "electron .",
+    "toolhub": "node cli.js",
     "test": "node test/all.js",
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
@@ -22,6 +24,7 @@
       "artifactName": "m72b-tool-hub-Setup-${version}.${ext}"
     },
     "nsis": {
+      "include": "build/installer.nsh",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
@@ -35,6 +38,7 @@
     },
     "files": [
       "main.js",
+      "cli.js",
       "preload.js",
       "src/**"
     ]

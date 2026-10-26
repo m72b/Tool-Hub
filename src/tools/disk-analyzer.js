@@ -3,7 +3,7 @@ const path = require('path');
 const safe = require('../core/safe');
 const { dirSizeAsync } = require('../core/walk');
 
-async function scan(params) {
+async function scan(params, ctx = {}) {
   const root = safe.existingDir(params.root);
   let entries;
   try {
@@ -20,7 +20,7 @@ async function scan(params) {
     if (entry.isSymbolicLink()) continue;
     const full = path.join(root, entry.name);
     if (entry.isDirectory()) {
-      const info = await dirSizeAsync(full, { skipCommonDirs: false });
+      const info = await dirSizeAsync(full, { skipCommonDirs: false, signal: ctx.signal, onProgress: ctx.progress });
       children.push({
         path: full,
         name: entry.name,

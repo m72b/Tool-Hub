@@ -169,6 +169,9 @@ const TOOLS = [
   { id: 'watch-folder', name: 'Watch Folder', category: 'Files', icon: 'WF', description: 'Automatically apply saved Organizer rules while watching a folder.', platforms: ALL, core: false },
   { id: 'file-locks', name: 'File Lock Finder', category: 'System', icon: 'FL', description: 'Use Windows Restart Manager to find processes using a file.', platforms: WIN, core: false },
   { id: 'pdf-tools', name: 'PDF Merge & Split', category: 'Media', icon: 'PF', description: 'Merge PDFs or extract a selected page range.', platforms: ALL, core: false },
+  { id: 'disk-benchmark', name: 'Disk Benchmark', category: 'System', icon: 'DB', description: 'Measure sequential read and write speed using a temporary file.', platforms: ALL, core: false },
+  { id: 'workflows', name: 'Workflows', category: 'Files', icon: 'WF', description: 'Save and run rename, organize and compress pipelines.', platforms: ALL, core: true },
+  { id: 'scheduled-cleanup', name: 'Scheduled Cleanup', category: 'System', icon: 'SC', description: 'Schedule a weekly temp and browser cache cleanup.', platforms: WIN, core: false },
 ];
 
 const BY_ID = new Map(TOOLS.map(t => [t.id, t]));
