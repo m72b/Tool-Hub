@@ -13,7 +13,7 @@ async function get(params, ctx) {
     return { supported: false, drives: [], message: 'Drive Health uses Windows storage APIs and is only available on Windows.' };
   }
   const disks = await safe.powershellJson(
-    'Get-PhysicalDisk | Select-Object DeviceId,FriendlyName,MediaType,BusType,Size,HealthStatus,OperationalStatus,SerialNumber,FirmwareVersion | ConvertTo-Json -Compress',
+    'Get-PhysicalDisk | ForEach-Object { [PSCustomObject]@{DeviceId=$_.DeviceId;FriendlyName=$_.FriendlyName;MediaType=$_.MediaType.ToString();BusType=$_.BusType.ToString();Size=$_.Size;HealthStatus=$_.HealthStatus.ToString();OperationalStatus=($_.OperationalStatus -join ",");SerialNumber=$_.SerialNumber;FirmwareVersion=$_.FirmwareVersion} } | ConvertTo-Json -Compress',
     { timeout: 40000 }
   );
   if (!disks.ok) {
@@ -29,6 +29,7 @@ async function get(params, ctx) {
   if (counters.ok && counters.data) {
     for (const c of counters.data) counterMap.set(String(c.DeviceId), c);
   }
+  const metric = value => value == null || value === '' ? null : (Number.isFinite(Number(value)) ? Number(value) : null);
   const drives = (disks.data || []).map(d => {
     const c = counterMap.get(String(d.DeviceId)) || {};
     return {
@@ -42,9 +43,9 @@ async function get(params, ctx) {
       operational: String(d.OperationalStatus ?? ''),
       serial: d.SerialNumber ? String(d.SerialNumber).trim() : '',
       firmware: d.FirmwareVersion ? String(d.FirmwareVersion).trim() : '',
-      temperature: Number.isFinite(Number(c.Temperature)) ? Number(c.Temperature) : null,
-      wear: Number.isFinite(Number(c.Wear)) ? Number(c.Wear) : null,
-      powerOnHours: Number.isFinite(Number(c.PowerOnHours)) ? Number(c.PowerOnHours) : null,
+      temperature: metric(c.Temperature),
+      wear: metric(c.Wear),
+      powerOnHours: metric(c.PowerOnHours),
       readErrors: Number(c.ReadErrorsTotal) || 0,
       writeErrors: Number(c.WriteErrorsTotal) || 0,
     };

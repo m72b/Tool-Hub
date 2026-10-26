@@ -33,6 +33,11 @@
   function applyTemplate(format, file, index, overrides) {
     const { base, ext } = baseAndExt(file.name);
     const map = {
+      '{TrackNumber}': file.tags?.TrackNumber || '',
+      '{TrackName}': file.tags?.TrackName || '',
+      '{Artist}': file.tags?.Artist || '',
+      '{Album}': file.tags?.Album || '',
+      '{Year}': file.tags?.Year || '',
       '{ext}': ext,
       '{original}': base,
       '{UPPER}': base.toUpperCase(),
@@ -46,7 +51,7 @@
     for (const [token, value] of Object.entries(overrides)) {
       out = out.split(`{${token}}`).join(value);
     }
-    out = out.replace(/\{[^}]*\}/g, '').trim();
+    out = out.replace(/\{[^}]*\}/g, '').replace(/^\s*[-_.]+|[-_.]+\s*$/g, '').trim();
     if (out.length === 0) return file.name;
     if (ext && !out.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) out = `${out}.${ext}`;
     return out.replace(/[\\/:*?"<>|]/g, '_');
@@ -136,6 +141,7 @@
 
       const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
       const results = h('div', { class: 'results' });
+      let nameInputs = new WeakMap();
       const formatInput = h('textarea', { class: 'input mono', rows: '2', spellcheck: 'false', text: state.format });
       const previewLine = h('div', { class: 'preview-line' });
 
@@ -181,6 +187,12 @@
 
       function updatePreview() {
         const list = computeNames();
+        for (const file of list) {
+          const input = nameInputs.get(file);
+          if (!input || document.activeElement === input) continue;
+          input.value = file.newName;
+          input.classList.toggle('same', file.newName === file.name);
+        }
         previewLine.textContent = list.length > 0
           ? `Preview: ${list[0].name}  →  ${list[0].newName}`
           : 'Preview: load a folder to see results';
@@ -218,6 +230,7 @@
       }
 
       function drawList() {
+        nameInputs = new WeakMap();
         clear(results);
         if (!state.folder) {
           results.appendChild(empty('Choose a folder to begin.'));
@@ -238,13 +251,17 @@
           class: 'btn btn-accent', type: 'button', text: 'Save all changes',
           onclick: async () => {
             saveAll.disabled = true;
-            let ok = 0;
-            for (const file of list) {
-              if (file.newName === file.name) continue;
-              if (await saveOne(file)) ok++;
-            }
+            const pending = list.filter(file => file.newName !== file.name);
+            if (pending.length === 0) { saveAll.disabled = false; return; }
+            const res = await api.invoke('renameBatch', { folder: state.folder, items: pending.map(file => ({ oldName: file.name, relativePath: file.relativePath, newName: file.newName })) });
             saveAll.disabled = false;
-            api.toast(`Renamed ${ok} file(s)`, ok > 0 ? 'ok' : 'error');
+            if (!res.ok) {
+              for (const file of pending) file.status = 'error';
+              drawList();
+              api.toast(res.error, 'error');
+              return;
+            }
+            api.toast(`Renamed ${res.data.renamed} file(s)`, 'ok');
             loadFolder(state.folder);
           },
         });
@@ -291,6 +308,7 @@
             spellcheck: 'false',
             oninput: e => { file.newName = e.target.value; },
           });
+          nameInputs.set(file, input);
           const isAudio = /^(mp3|flac|wav|aac|ogg|m4a|wma|opus)$/i.test(file.ext);
           return h('div', { class: 'tbl-row' }, [
             h('span', { class: 'mono ellipsis', text: file.name, title: file.name }),

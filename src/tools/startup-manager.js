@@ -46,6 +46,18 @@ async function list(params, ctx) {
     }
   }
 
+  const backup = readBackup(ctx);
+  for (const key of RUN_KEYS) {
+    for (const [id, command] of Object.entries(backup)) {
+      const prefix = `reg:${key.hive}:`;
+      if (!id.startsWith(prefix) || cache.has(id)) continue;
+      const name = id.slice(prefix.length);
+      if (!name) continue;
+      cache.set(id, { type: 'registry', key, name, command: String(command || '') });
+      entries.push({ id, name, command: String(command || ''), scope: key.scope, source: `Registry (${key.hive})`, enabled: false, canToggle: true });
+    }
+  }
+
   for (const folder of startupFolders()) {
     for (const enabled of [true, false]) {
       const dir = enabled ? folder.dir : disabledDir(folder.dir);

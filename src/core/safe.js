@@ -22,11 +22,18 @@ function normalizeAbsolute(input) {
 }
 
 function realPath(input) {
-  const resolved = normalizeAbsolute(input);
-  try {
-    return fs.realpathSync.native(resolved);
-  } catch {
-    return resolved;
+  let current = normalizeAbsolute(input);
+  const tail = [];
+  while (true) {
+    try {
+      return path.join(fs.realpathSync.native(current), ...tail.reverse());
+    } catch (err) {
+      if (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR')) return path.resolve(current, ...tail.reverse());
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(current, ...tail.reverse());
+      tail.push(path.basename(current));
+      current = parent;
+    }
   }
 }
 
@@ -68,7 +75,7 @@ function assertInside(roots, target) {
   const real = realPath(resolved);
   const ok = list.some(root => {
     if (!root) return false;
-    return isInside(root, resolved) || isInside(realPath(root), real);
+    return isInside(realPath(root), real);
   });
   if (!ok) fail('Path is outside the permitted folder');
   return resolved;

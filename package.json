@@ -1,4 +1,3 @@
-
 {
   "name": "tool-hub",
   "version": "3.0.0",
@@ -47,5 +46,8 @@
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "music-metadata": "^11.16.1"
   }
 }
