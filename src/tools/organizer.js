@@ -11,11 +11,11 @@ async function move(params) {
   const folder = safe.existingDir(params.folder);
   const { fileName, destFolder } = params;
   if (!safe.safeEntryName(fileName)) safe.fail('Invalid file name');
-  if (!safe.safeEntryName(destFolder)) safe.fail('Invalid destination folder name');
+  if (typeof destFolder !== 'string' || !destFolder.trim() || destFolder.length > 240 || path.isAbsolute(destFolder) || destFolder.includes('\0') || destFolder.split(/[\\/]/).some(part => !safe.safeEntryName(part))) safe.fail('Invalid destination folder path');
   const relativePath = typeof params.relativePath === 'string' ? params.relativePath : fileName;
   if (!relativePath || path.isAbsolute(relativePath) || relativePath.includes('\0')) safe.fail('Invalid file path');
   const source = safe.assertInside(folder, path.resolve(folder, relativePath));
-  const destinationDir = safe.assertInside(folder, path.join(folder, destFolder));
+  const destinationDir = safe.assertInside(folder, path.resolve(folder, destFolder));
   if (!fs.existsSync(source)) safe.fail('Source file not found');
   if (!fs.statSync(source).isFile()) safe.fail('Source path is not a file');
   fs.mkdirSync(destinationDir, { recursive: true });

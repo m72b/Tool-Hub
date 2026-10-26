@@ -5,6 +5,8 @@ const { walkFilesAsync } = require('../core/walk');
 const { parseFile } = require('music-metadata');
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.aac', '.ogg', '.m4a', '.wma', '.opus']);
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.m4v', '.mov', '.mkv', '.webm', '.avi']);
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg']);
 
 async function mapLimit(items, limit, mapper) {
   const result = new Array(items.length);
@@ -21,20 +23,73 @@ async function mapLimit(items, limit, mapper) {
 
 async function fileInfoWithTags(filePath) {
   const info = await fileInfo(filePath);
-  if (!AUDIO_EXTENSIONS.has(path.extname(filePath).toLowerCase())) return info;
-  try {
-    const { common } = await parseFile(filePath, { duration: false });
+  const ext = path.extname(filePath).toLowerCase();
+  if (AUDIO_EXTENSIONS.has(ext) || VIDEO_EXTENSIONS.has(ext)) try {
+    const { common, format } = await parseFile(filePath, { duration: true });
     info.tags = {
       TrackNumber: common.track?.no == null ? '' : String(common.track.no).padStart(2, '0'),
       TrackName: common.title || '',
       Artist: common.artist || common.artists?.join(', ') || '',
       Album: common.album || '',
       Year: common.year == null ? '' : String(common.year),
+      Duration: Number.isFinite(format.duration) ? format.duration.toFixed(2) : '',
     };
   } catch {
     info.tags = {};
   }
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    try {
+      const date = await readExifDate(filePath);
+      if (date) {
+        const pad = value => String(value).padStart(2, '0');
+        info.tags = { ...(info.tags || {}), DateTaken: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`, Year: String(date.getFullYear()) };
+      }
+    } catch {}
+  }
   return info;
+}
+
+async function readExifDate(filePath) {
+  const handle = await fs.promises.open(filePath, 'r');
+  try {
+    const stat = await handle.stat();
+    const buffer = Buffer.alloc(Math.min(stat.size, 2 * 1024 * 1024));
+    await handle.read(buffer, 0, buffer.length, 0);
+    if (buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+    let offset = 2;
+    while (offset + 4 < buffer.length && buffer[offset] === 0xff) {
+      const marker = buffer[offset + 1];
+      const size = buffer.readUInt16BE(offset + 2);
+      if (size < 2 || offset + 2 + size > buffer.length) break;
+      if (marker === 0xe1 && buffer.toString('ascii', offset + 4, offset + 10) === 'Exif\0\0') {
+        const tiff = offset + 10;
+        const little = buffer.toString('ascii', tiff, tiff + 2) === 'II';
+        const u16 = pos => little ? buffer.readUInt16LE(pos) : buffer.readUInt16BE(pos);
+        const u32 = pos => little ? buffer.readUInt32LE(pos) : buffer.readUInt32BE(pos);
+        const firstIfd = tiff + u32(tiff + 4);
+        const count = Math.min(u16(firstIfd), 512);
+        let exifIfd = null, dateText = '';
+        const readIfd = pos => {
+          const entries = Math.min(u16(pos), 512);
+          for (let i = 0; i < entries; i++) {
+            const entry = pos + 2 + i * 12;
+            const tag = u16(entry), type = u16(entry + 2), n = u32(entry + 4);
+            if (tag === 0x8769) exifIfd = tiff + u32(entry + 8);
+            if ((tag === 0x9003 || tag === 0x0132) && type === 2 && n > 0 && n < 64) {
+              const data = n <= 4 ? entry + 8 : tiff + u32(entry + 8);
+              dateText = buffer.toString('ascii', data, data + n).replace(/\0.*$/, '');
+            }
+          }
+        };
+        if (firstIfd + 2 + count * 12 < buffer.length) readIfd(firstIfd);
+        if (exifIfd && exifIfd + 2 < buffer.length) readIfd(exifIfd);
+        const m = dateText.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+        if (m) { const date = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]); if (!Number.isNaN(date.getTime())) return date; }
+      }
+      offset += 2 + size;
+    }
+  } finally { await handle.close(); }
+  return null;
 }
 
 async function fileInfo(filePath) {
@@ -147,4 +202,4 @@ async function musicbrainz(params) {
   }
 }
 
-module.exports = { id: 'renamer', actions: { readFolder, rename, renameBatch, musicbrainz }, fileInfo, fileInfoWithTags };
+module.exports = { id: 'renamer', actions: { readFolder, rename, renameBatch, musicbrainz }, fileInfo, fileInfoWithTags, readExifDate };

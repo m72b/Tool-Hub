@@ -1,4 +1,5 @@
 const os = require('os');
+const fs = require('fs');
 const path = require('path');
 const safe = require('../core/safe');
 const { dirSizeAsync } = require('../core/walk');
@@ -15,6 +16,15 @@ function candidates(platform) {
     seen.add(key);
     list.push({ id, label, path: resolved, description });
   };
+  const addProfileCaches = (id, label, profiles, description) => {
+    try {
+      for (const entry of fs.readdirSync(profiles, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const cache = path.join(profiles, entry.name, 'cache2');
+        if (fs.existsSync(cache)) add(`${id}-${entry.name}`, `${label} (${entry.name})`, cache, description);
+      }
+    } catch {}
+  };
   if (platform === 'win32') {
     const local = process.env.LOCALAPPDATA;
     const winDir = process.env.SystemRoot || 'C:\\Windows';
@@ -24,12 +34,20 @@ function candidates(platform) {
     add('prefetch', 'Prefetch', path.join(winDir, 'Prefetch'), 'Windows app launch cache, rebuilt automatically');
     add('inet-cache', 'Internet cache', local ? path.join(local, 'Microsoft', 'Windows', 'INetCache') : null, 'Cached web content');
     add('crash-dumps', 'Crash dumps', local ? path.join(local, 'CrashDumps') : null, 'Application crash dump files');
+    add('chrome-cache', 'Chrome cache', local ? path.join(local, 'Google', 'Chrome', 'User Data', 'Default', 'Cache', 'Cache_Data') : null, 'Chrome cached web content (not cookies or saved passwords)');
+    add('edge-cache', 'Edge cache', local ? path.join(local, 'Microsoft', 'Edge', 'User Data', 'Default', 'Cache', 'Cache_Data') : null, 'Edge cached web content (not cookies or saved passwords)');
+    addProfileCaches('firefox-cache', 'Firefox cache', local ? path.join(local, 'Mozilla', 'Firefox', 'Profiles') : '', 'Firefox cached web content');
   } else if (platform === 'darwin') {
     add('user-cache', 'User caches', path.join(home, 'Library', 'Caches'), 'Per-user application caches');
     add('system-temp', 'System temp', os.tmpdir(), 'Temporary files');
+    add('chrome-cache', 'Chrome cache', path.join(home, 'Library', 'Caches', 'Google', 'Chrome'), 'Chrome cached web content');
+    addProfileCaches('firefox-cache', 'Firefox cache', path.join(home, 'Library', 'Caches', 'Firefox', 'Profiles'), 'Firefox cached web content');
   } else {
     add('user-cache', 'User cache', path.join(home, '.cache'), 'Per-user application caches');
     add('system-temp', 'System temp', os.tmpdir(), 'Temporary files');
+    add('chrome-cache', 'Chrome cache', path.join(home, '.cache', 'google-chrome'), 'Chrome cached web content');
+    add('edge-cache', 'Edge cache', path.join(home, '.cache', 'microsoft-edge'), 'Edge cached web content');
+    addProfileCaches('firefox-cache', 'Firefox cache', path.join(home, '.cache', 'mozilla', 'firefox'), 'Firefox cached web content');
   }
   return list;
 }

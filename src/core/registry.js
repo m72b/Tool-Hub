@@ -161,6 +161,14 @@ const TOOLS = [
   { id: 'port-process', name: 'Port & Process Viewer', category: 'System', icon: 'PP', description: 'View listening ports and stop a selected process.', platforms: ALL, core: false },
   { id: 'system-editor', name: 'Hosts & Environment Editor', category: 'System', icon: 'HE', description: 'Edit Windows hosts and user environment settings with backups.', platforms: WIN, core: false },
   { id: 'utilities', name: 'Text & Data Utilities', category: 'Utilities', icon: 'UT', description: 'Format JSON, convert Base64, compare text, test regex and create passwords.', platforms: ALL, core: true },
+  { id: 'folder-sync', name: 'Folder Sync', category: 'Files', icon: 'FS', description: 'Preview and copy missing or newer files into a mirror folder.', platforms: ALL, core: false },
+  { id: 'file-type', name: 'File Type Fixer', category: 'Files', icon: 'FT', description: 'Detect common file types from their contents and correct extensions.', platforms: ALL, core: false },
+  { id: 'archive-tool', name: 'Archive Tool', category: 'Files', icon: 'AR', description: 'Create and extract ZIP archives.', platforms: ALL, core: false },
+  { id: 'secure-delete', name: 'Secure Delete', category: 'Cleanup', icon: 'SD', description: 'Overwrite and delete files, with a warning about SSD limitations.', platforms: ALL, core: false },
+  { id: 'image-privacy', name: 'Image Privacy & Watermark', category: 'Media', icon: 'IP', description: 'Re-encode photos to strip metadata or add a visible watermark.', platforms: ALL, core: false },
+  { id: 'watch-folder', name: 'Watch Folder', category: 'Files', icon: 'WF', description: 'Automatically apply saved Organizer rules while watching a folder.', platforms: ALL, core: false },
+  { id: 'file-locks', name: 'File Lock Finder', category: 'System', icon: 'FL', description: 'Use Windows Restart Manager to find processes using a file.', platforms: WIN, core: false },
+  { id: 'pdf-tools', name: 'PDF Merge & Split', category: 'Media', icon: 'PF', description: 'Merge PDFs or extract a selected page range.', platforms: ALL, core: false },
 ];
 
 const BY_ID = new Map(TOOLS.map(t => [t.id, t]));

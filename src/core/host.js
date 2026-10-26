@@ -26,6 +26,14 @@ const MODULE_FILES = {
   'port-process': 'port-process',
   'system-editor': 'system-editor',
   utilities: 'utilities',
+  'folder-sync': 'advanced-files',
+  'file-type': 'advanced-files',
+  'archive-tool': 'advanced-files',
+  'secure-delete': 'advanced-files',
+  'image-privacy': 'image-privacy',
+  'file-locks': 'advanced-files',
+  'pdf-tools': 'pdf-tools',
+  'watch-folder': 'watch-folder',
 };
 
 function createHost(options) {

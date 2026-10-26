@@ -83,7 +83,7 @@ function isApprovedPath(target) {
 }
 
 function validateRendererPaths(params) {
-  const pathFields = ['folder', 'root', 'left', 'right', 'roots', 'path', 'paths', 'dir'];
+  const pathFields = ['folder', 'root', 'left', 'right', 'roots', 'path', 'paths', 'dir', 'destination', 'outputDir', 'archive'];
   for (const field of pathFields) {
     const value = params[field];
     if (typeof value === 'string' && value.length > 0) {

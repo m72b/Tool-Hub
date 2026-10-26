@@ -178,7 +178,7 @@ MOCK['image-resize'] = MOCK['image-convert'];
 const ctxObj = createEnv();
 const context = vm.createContext(ctxObj);
 loadScript(context, 'ui.js');
-for (const f of ['renamer', 'cleanup', 'files', 'system', 'media', 'extra']) loadScript(context, `views/${f}.js`);
+for (const f of ['renamer', 'cleanup', 'files', 'system', 'media', 'extra', 'advanced']) loadScript(context, `views/${f}.js`);
 
 const registry = require(path.join(ROOT, 'src', 'core', 'registry'));
 const Hub = ctxObj.Hub;

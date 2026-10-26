@@ -4,7 +4,7 @@
 
   const PRESET_KEY = 'toolhub_presets_v1';
   const OVERRIDE_KEY = 'toolhub_overrides_v1';
-  const BUILTIN_TOKENS = ['{TrackNumber}', '{TrackName}', '{Artist}', '{Album}', '{Year}', '{ext}', '{original}', '{UPPER}', '{lower}', '{TitleCase}', '{SentenceCase}', '{n}'];
+  const BUILTIN_TOKENS = ['{TrackNumber}', '{TrackName}', '{Artist}', '{Album}', '{Year}', '{DateTaken}', '{Duration}', '{ext}', '{original}', '{UPPER}', '{lower}', '{TitleCase}', '{SentenceCase}', '{n}'];
 
   function readJson(key, fallback) {
     try {
@@ -38,6 +38,8 @@
       '{Artist}': file.tags?.Artist || '',
       '{Album}': file.tags?.Album || '',
       '{Year}': file.tags?.Year || '',
+      '{DateTaken}': file.tags?.DateTaken || '',
+      '{Duration}': file.tags?.Duration || '',
       '{ext}': ext,
       '{original}': base,
       '{UPPER}': base.toUpperCase(),
@@ -838,6 +840,14 @@
           if (to !== null && year > to) return false;
           return from !== null || to !== null;
         }
+        if (rule.type === 'exifDate') {
+          const date = file.tags?.DateTaken;
+          if (!date) return false;
+          const year = Number(date.slice(0, 4));
+          const from = rule.dateFrom ? Number(rule.dateFrom) : null;
+          const to = rule.dateTo ? Number(rule.dateTo) : null;
+          return (from === null || year >= from) && (to === null || year <= to);
+        }
         if (rule.type === 'size') {
           const min = rule.sizeMin ? Number(rule.sizeMin) * unitBytes(rule.sizeMinUnit) : null;
           const max = rule.sizeMax ? Number(rule.sizeMax) * unitBytes(rule.sizeMaxUnit) : null;
@@ -864,11 +874,12 @@
           }, [
             h('option', { value: 'pattern', text: 'Filename pattern', selected: rule.type === 'pattern' }),
             h('option', { value: 'date', text: 'Modified year', selected: rule.type === 'date' }),
+            h('option', { value: 'exifDate', text: 'Photo EXIF date', selected: rule.type === 'exifDate' }),
             h('option', { value: 'size', text: 'File size', selected: rule.type === 'size' }),
           ]);
 
           const fields = [];
-          if (rule.type === 'date') {
+          if (rule.type === 'date' || rule.type === 'exifDate') {
             fields.push(h('input', { class: 'input', type: 'number', placeholder: 'From year', value: rule.dateFrom || '', oninput: e => { rule.dateFrom = e.target.value; saveRules(); } }));
             fields.push(h('input', { class: 'input', type: 'number', placeholder: 'To year', value: rule.dateTo || '', oninput: e => { rule.dateTo = e.target.value; saveRules(); } }));
           } else if (rule.type === 'size') {
@@ -897,7 +908,7 @@
             h('div', { class: 'rule-fields' }, [
               ...fields,
               h('span', { class: 'muted', text: '→' }),
-              h('input', { class: 'input', type: 'text', placeholder: 'destination subfolder', value: rule.dest || '', oninput: e => { rule.dest = e.target.value; saveRules(); } }),
+              h('input', { class: 'input', type: 'text', placeholder: 'destination, e.g. Photos/{year}/{month}', value: rule.dest || '', oninput: e => { rule.dest = e.target.value; saveRules(); } }),
             ]),
           ]));
         });
@@ -926,13 +937,14 @@
           const rule = valid.find(r => ruleMatches(r, file));
           if (!rule) continue;
           const relativeParts = String(file.relativePath || file.name).split(/[\\/]/);
-          if (relativeParts.length === 2 && relativeParts[0].toLowerCase() === rule.dest.trim().toLowerCase()) continue;
+          const destination = rule.dest.trim().replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
+          if (relativeParts.length >= 2 && relativeParts.slice(0, -1).join('/').toLowerCase() === destination.replace(/\\/g, '/').toLowerCase()) continue;
           if (dryRun) {
-            lines.push({ ok: true, text: `Would move ${file.relativePath || file.name} → ${rule.dest}/` });
+            lines.push({ ok: true, text: `Would move ${file.relativePath || file.name} → ${destination}/` });
             moved++;
             continue;
           }
-          const move = await api.invoke('move', { folder: state.folder, fileName: file.name, relativePath: file.relativePath, destFolder: rule.dest.trim() });
+          const move = await api.invoke('move', { folder: state.folder, fileName: file.name, relativePath: file.relativePath, destFolder: destination });
           if (move.ok) {
             lines.push({ ok: true, text: `Moved ${move.data.from} → ${move.data.to}` });
             successfulMoves.push({ from: move.data.from, to: move.data.to, reversed: false });
