@@ -159,7 +159,7 @@ async function walkFilesAsync(root, options = {}) {
   const {
     recursive = true, maxDepth = Infinity, limit = DEFAULT_LIMIT,
     followSymlinks = false, skipHidden = false, includeDirs = false,
-    onError = null, filter = null, skipCommonDirs = true, skipDirs = null, signal = null, onProgress = null,
+    onError = null, filter = null, skipCommonDirs = true, skipDirs = null, excludeDirs = null, signal = null, onProgress = null,
   } = options;
   const results = [];
   const seenDirs = new Set();
@@ -193,6 +193,7 @@ async function walkFilesAsync(root, options = {}) {
       }
       if (isDir) {
         if (skipDir(entry.name, { skipCommonDirs, skipDirs })) continue;
+        if (excludeDirs?.some(excluded => path.resolve(excluded) === path.resolve(full))) continue;
         if (includeDirs) results.push({ path: full, name: entry.name, isDir: true, size: 0, mtime: 0 });
         if (recursive && depth < maxDepth) stack.push({ dir: full, depth: depth + 1 });
         continue;

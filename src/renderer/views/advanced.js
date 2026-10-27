@@ -104,19 +104,31 @@
   Hub.registerView('watch-folder', { render(api) {
     const root = h('div', { class: 'tool' }), status = h('div', { class: 'results' });
     const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
-    const state = { folder: '', watching: false };
+    const state = { folder: '', watching: false, poll: null };
+    const drawStatus = data => {
+      state.watching = !!data?.watching;
+      start.textContent = state.watching ? 'Stop watching' : 'Start watching';
+      clear(status);
+      status.appendChild(statusNote(data?.lastError ? `Watcher error: ${data.lastError}` : state.watching ? `Watching ${data.folder} · moved ${data.moved} · waiting for ${data.waiting} file(s) to finish` : data?.folder ? 'Watcher stopped.' : 'Not watching.', data?.lastError ? 'error' : 'info'));
+      if (data?.log?.length) status.appendChild(h('div', { class: 'log' }, data.log.slice(0, 8).map(entry => h('div', { class: `log-line${entry.message.includes('Could not') || entry.message.includes('failed') ? ' log-err' : ''}`, text: `${new Date(entry.at).toLocaleTimeString()} · ${entry.message}` }))));
+    };
     const start = h('button', { class: 'btn btn-accent', type: 'button', text: 'Start watching', onclick: async () => {
-      if (state.watching) { const result = await api.invoke('stop', { folder: state.folder }); state.watching = false; start.textContent = 'Start watching'; status.textContent = result.ok ? 'Watcher stopped.' : result.error; return; }
+      if (state.watching) { const result = await api.invoke('stop', { folder: state.folder }); if (result.ok) drawStatus(result.data); else api.toast(result.error, 'error'); return; }
       if (!state.folder) { api.toast('Choose a folder first', 'error'); return; }
       let rules = []; try { rules = JSON.parse(localStorage.getItem('toolhub_org_rules_v1') || '[]').filter(rule => rule.dest); } catch {}
       const result = await api.invoke('start', { folder: state.folder, rules });
       if (!result.ok) { api.toast(result.error, 'error'); return; }
-      state.watching = true; start.textContent = 'Stop watching';
-      status.textContent = `Watching ${state.folder} in the background while Tool Hub is running. Changes are detected with fs.watch and a short debounce.`;
+      drawStatus(result.data);
     } });
-    const pick = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose folder', onclick: async () => { const folder = await api.pickFolder('Folder to watch'); if (folder) { state.folder = folder; folderLabel.textContent = folder; folderLabel.classList.remove('empty'); } } });
+    const pick = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose folder', onclick: async () => { const folder = await api.pickFolder('Folder to watch'); if (folder) { state.folder = folder; folderLabel.textContent = folder; folderLabel.classList.remove('empty'); const result = await api.invoke('status', { folder }); if (result.ok) drawStatus(result.data); } } });
     root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Watch Folder' }), h('p', { class: 'tool-desc', text: 'Automatically apply saved Organizer rules while Tool Hub is running, even when you switch to another tool.' })]));
     root.appendChild(h('div', { class: 'action-row' }, [pick, folderLabel, start])); root.appendChild(status);
+    state.poll = setInterval(async () => {
+      if (!root.isConnected) { clearInterval(state.poll); return; }
+      if (!state.folder) return;
+      const result = await api.invoke('status', { folder: state.folder });
+      if (result.ok) drawStatus(result.data);
+    }, 1500);
     return root;
   } });
 

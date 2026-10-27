@@ -5,6 +5,7 @@
 
   let catalog = null;
   let activeId = null;
+  let queuedOpenFolder = null;
   const FAVORITES_KEY = 'toolhub_favorites_v1';
   const RECENT_KEY = 'toolhub_recent_v1';
   const ACTIVITY_KEY = 'toolhub_activity_v1';
@@ -171,6 +172,15 @@
     contentEl.scrollTop = 0;
   }
 
+  function openDroppedFolder(folder) {
+    if (!catalog?.setupComplete) { queuedOpenFolder = folder; return; }
+    const target = installedTools().some(tool => tool.id === 'renamer') ? 'renamer' : installedTools()[0]?.id;
+    if (target) openTool(target); else openLibrary();
+    document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: folder }));
+  }
+
+  window.hub.onOpenFolder(openDroppedFolder);
+
   function toolCard(tool, selected, onToggle) {
     const disabled = !tool.supported || tool.core;
     const box = h('input', {
@@ -237,8 +247,8 @@
             catalog = await window.hub.tools.setInstalled(Array.from(selection), true);
             toast('Tool selection saved', 'ok');
             const first = installedTools()[0];
-            const pendingFolder = options.afterSave === 'open' ? await window.hub.takeOpenFolder() : null;
-            if (options.afterSave === 'open' && pendingFolder) { openTool(installedTools().some(t => t.id === 'renamer') ? 'renamer' : first?.id); document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: pendingFolder })); }
+            const pendingFolder = options.afterSave === 'open' ? (queuedOpenFolder || await window.hub.takeOpenFolder()) : null;
+            if (options.afterSave === 'open' && pendingFolder) openDroppedFolder(pendingFolder);
             else if (options.afterSave === 'open' && first) openTool(first.id);
             else openLibrary();
           },
@@ -415,8 +425,8 @@
       return;
     }
     renderSidebar();
-    const pendingFolder = await window.hub.takeOpenFolder();
-    if (pendingFolder) { openTool(installedTools().some(t => t.id === 'renamer') ? 'renamer' : installedTools()[0]?.id); document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: pendingFolder })); }
+    const pendingFolder = queuedOpenFolder || await window.hub.takeOpenFolder();
+    if (pendingFolder) openDroppedFolder(pendingFolder);
     else if (installedTools()[0]) openTool(installedTools()[0].id);
     else openLibrary();
   }

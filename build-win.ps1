@@ -9,7 +9,7 @@ try {
 
     $package = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'package.json') -Raw | ConvertFrom-Json
     $installerName = "m72b-tool-hub-Setup-$($package.version).exe"
-    $installer = Join-Path $PSScriptRoot "m72b's test build\$installerName"
+    $installer = Join-Path $PSScriptRoot "dist\$installerName"
     if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
         throw "Build completed, but the installer was not found at: $installer"
     }

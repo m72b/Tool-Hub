@@ -8,6 +8,8 @@ const RENDERER = path.join(__dirname, 'src', 'renderer', 'index.html');
 const approvedDirectories = new Set();
 const approvedFiles = new Set();
 const activeJobs = new Map();
+const headlessLaunch = process.argv.includes('--cli') || process.argv.includes('--scheduled-cleanup');
+const singleInstanceLock = headlessLaunch || app.requestSingleInstanceLock();
 
 function appendScheduledLog(message) {
   const logPath = path.join(app.getPath('userData'), 'scheduled-cleanup.log');
@@ -23,6 +25,25 @@ let host = null;
 const portableMarker = path.join(path.dirname(process.execPath), 'toolhub.portable');
 let portableActive = app.isPackaged && (process.argv.includes('--portable') || fs.existsSync(portableMarker));
 let pendingOpenFolder = null;
+
+if (!singleInstanceLock) app.quit();
+else if (!headlessLaunch) app.on('second-instance', (_event, commandLine) => {
+  const folderIndex = commandLine.indexOf('--open-folder');
+  if (folderIndex >= 0) {
+    try {
+      const folder = approveFolder(commandLine[folderIndex + 1]);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.webContents.isLoading()) pendingOpenFolder = folder;
+        else mainWindow.webContents.send('shell:openFolder', folder);
+      } else pendingOpenFolder = folder;
+    } catch (err) { console.error(`Could not open requested folder: ${err.message}`); }
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
 
 if (portableActive) {
   try {
@@ -121,7 +142,7 @@ async function trashItem(target) {
   await shell.trashItem(target);
 }
 
-app.whenReady().then(async () => {
+if (singleInstanceLock) app.whenReady().then(async () => {
   store = createStore(app.getPath('userData'), process.platform);
   host = createHost({
     store,

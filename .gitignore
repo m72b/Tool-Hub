@@ -1,7 +1,5 @@
 node_modules/
 dist/
 release/
-*test build/
-m72b's test build/
 *.log
 .DS_Store

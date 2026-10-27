@@ -11,6 +11,11 @@ contextBridge.exposeInMainWorld('hub', {
   pickFiles: () => ipcRenderer.invoke('shell:pickFiles'),
   approveDrop: target => ipcRenderer.invoke('shell:approveDrop', target),
   takeOpenFolder: () => ipcRenderer.invoke('shell:takeOpenFolder'),
+  onOpenFolder: callback => {
+    const listener = (_event, folder) => callback(folder);
+    ipcRenderer.on('shell:openFolder', listener);
+    return () => ipcRenderer.removeListener('shell:openFolder', listener);
+  },
   getPathForFile: file => webUtils.getPathForFile(file),
   portableMode: () => ipcRenderer.invoke('app:portableMode'),
   togglePortable: () => ipcRenderer.invoke('app:togglePortable'),

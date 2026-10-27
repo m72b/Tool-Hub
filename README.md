@@ -1,6 +1,6 @@
 # m72b Tool Hub
 
-A modular Electron desktop application containing 17 file, cleanup and system tools. On first launch you choose which tools to install; uninstalled tools are never loaded into memory and register no IPC handlers.
+A modular Electron desktop application containing 34 tools across files, cleanup, system, media and utility workflows. On first launch you choose which tools to install; uninstalled tools are never loaded into memory and register no IPC handlers.
 
 ## Running
 
@@ -39,13 +39,15 @@ Tools are enabled and disabled locally rather than fetched from a server, becaus
 
 ## Tools
 
-**Files** - Batch Renamer, File Organizer, Folder Compare, File Hash Generator, File Attribute Editor, File Date Editor
+**Files** - Batch Renamer, File Organizer, Folder Compare, File Hash Generator, File Attribute Editor, File Date Editor, Directory Tree Export, Folder Sync, File Type Fixer, Archive Tool, Watch Folder, Workflows
 
-**Cleanup** - Duplicate Finder, Disk Space Analyzer, Large File Finder, Temporary File Cleaner
+**Cleanup** - Duplicate Finder, Disk Space Analyzer, Large File Finder, Temporary File Cleaner, Empty Folder Cleaner, Zero-Byte & Shortcut Finder, Secure Delete
 
-**System** - Installed Apps Manager, Startup Manager, System Information, Drive Health, Network Toolkit
+**System** - Installed Apps Manager, Startup Manager, System Information, Drive Health, Network Toolkit, Port & Process Viewer, Hosts & Environment Editor, File Lock Finder, Disk Benchmark, Scheduled Cleanup
 
-**Media** - Image Converter, Image Resizer
+**Media** - Image Converter, Image Resizer, Image Privacy & Watermark, PDF Merge & Split
+
+**Utilities** - Text & Data Utilities
 
 Batch Renamer and File Organizer are core tools and are always installed. Installed Apps Manager, Startup Manager and Drive Health are Windows-only and are hidden on other platforms.
 
@@ -66,4 +68,4 @@ The app uses `music-metadata` to read audio tags for Batch Renamer. Other tools 
 
 ## Testing
 
-`npm test` runs six suites covering path traversal and command-injection defences, the filesystem walker, install-state persistence, every tool backend, view registration for all 17 tools, and headless execution of every view's result-rendering path.
+The `test/` folder contains 12 test files grouped into six suites. They cover path traversal and command-injection defences, the filesystem walker, install-state persistence, tool backends, view registration for all 34 tools, and headless execution of every view's result-rendering path.
