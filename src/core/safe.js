@@ -67,7 +67,7 @@ function isInside(root, target) {
   const b = path.resolve(target);
   if (a === b) return true;
   const rel = path.relative(a, b);
-  return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);
+  return rel.length > 0 && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
 function assertInside(roots, target) {

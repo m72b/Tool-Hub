@@ -104,42 +104,18 @@
   Hub.registerView('watch-folder', { render(api) {
     const root = h('div', { class: 'tool' }), status = h('div', { class: 'results' });
     const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
-    const state = { folder: '', timer: null, busy: false, moved: 0, rules: [] };
-    const stop = () => { if (state.timer) clearInterval(state.timer); state.timer = null; state.busy = false; };
+    const state = { folder: '', watching: false };
     const start = h('button', { class: 'btn btn-accent', type: 'button', text: 'Start watching', onclick: async () => {
-      if (state.timer) { stop(); start.textContent = 'Start watching'; status.textContent = 'Watcher stopped.'; return; }
+      if (state.watching) { const result = await api.invoke('stop', { folder: state.folder }); state.watching = false; start.textContent = 'Start watching'; status.textContent = result.ok ? 'Watcher stopped.' : result.error; return; }
       if (!state.folder) { api.toast('Choose a folder first', 'error'); return; }
-      try { state.rules = JSON.parse(localStorage.getItem('toolhub_org_rules_v1') || '[]').filter(rule => rule.dest); } catch { state.rules = []; }
-      if (!state.rules.length) { api.toast('Save at least one Organizer rule with a destination first', 'error'); return; }
-      const run = async () => {
-        if (!root.isConnected) { stop(); return; }
-        if (state.busy) return; state.busy = true;
-        try {
-          const scan = await api.invoke('readFolder', { folder: state.folder, recursive: true });
-          if (scan.ok) for (const file of scan.data.files) {
-            const rule = state.rules.find(r => {
-              if (r.type === 'date' || r.type === 'exifDate') {
-                const year = r.type === 'exifDate' ? Number(file.tags?.DateTaken?.slice(0, 4)) : new Date(file.mtime).getFullYear();
-                return Number.isFinite(year) && (!!r.dateFrom || !!r.dateTo) && (!r.dateFrom || year >= Number(r.dateFrom)) && (!r.dateTo || year <= Number(r.dateTo));
-              }
-              if (r.type === 'size') return (!!r.sizeMin || !!r.sizeMax) && (!r.sizeMin || file.size >= Number(r.sizeMin) * ({ KB: 1024, MB: 1048576, GB: 1073741824 }[r.sizeMinUnit] || 1048576)) && (!r.sizeMax || file.size <= Number(r.sizeMax) * ({ KB: 1024, MB: 1048576, GB: 1073741824 }[r.sizeMaxUnit] || 1048576));
-              const pattern = String(r.match || '').trim();
-              if (!pattern) return false;
-              const glob = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
-              return new RegExp(pattern.includes('*') || pattern.includes('?') ? `^${glob}$` : glob, 'i').test(file.name);
-            });
-            if (!rule) continue;
-            const destination = String(rule.dest).replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
-            const moved = await api.invoke('move', { folder: state.folder, relativePath: file.relativePath, fileName: file.name, destFolder: destination });
-            if (moved.ok) state.moved++;
-          }
-          status.textContent = `Watching ${state.folder} · moved ${state.moved} file(s) · checks every 5 seconds`;
-        } finally { state.busy = false; }
-      };
-      start.textContent = 'Stop watching'; await run(); state.timer = setInterval(run, 5000);
+      let rules = []; try { rules = JSON.parse(localStorage.getItem('toolhub_org_rules_v1') || '[]').filter(rule => rule.dest); } catch {}
+      const result = await api.invoke('start', { folder: state.folder, rules });
+      if (!result.ok) { api.toast(result.error, 'error'); return; }
+      state.watching = true; start.textContent = 'Stop watching';
+      status.textContent = `Watching ${state.folder} in the background while Tool Hub is running. Changes are detected with fs.watch and a short debounce.`;
     } });
     const pick = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose folder', onclick: async () => { const folder = await api.pickFolder('Folder to watch'); if (folder) { state.folder = folder; folderLabel.textContent = folder; folderLabel.classList.remove('empty'); } } });
-    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Watch Folder' }), h('p', { class: 'tool-desc', text: 'Automatically apply saved Organizer filename-pattern rules while this screen is open.' })]));
+    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Watch Folder' }), h('p', { class: 'tool-desc', text: 'Automatically apply saved Organizer rules while Tool Hub is running, even when you switch to another tool.' })]));
     root.appendChild(h('div', { class: 'action-row' }, [pick, folderLabel, start])); root.appendChild(status);
     return root;
   } });

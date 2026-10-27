@@ -9,6 +9,14 @@ const approvedDirectories = new Set();
 const approvedFiles = new Set();
 const activeJobs = new Map();
 
+function appendScheduledLog(message) {
+  const logPath = path.join(app.getPath('userData'), 'scheduled-cleanup.log');
+  let prior = '';
+  try { prior = fs.readFileSync(logPath, 'utf8'); } catch {}
+  const content = `${prior}${new Date().toISOString()} ${message}\n`;
+  fs.writeFileSync(logPath, content.slice(-512 * 1024));
+}
+
 let mainWindow = null;
 let store = null;
 let host = null;
@@ -137,10 +145,10 @@ app.whenReady().then(async () => {
     try {
       const cleaner = require('./src/tools/temp-cleaner');
       const result = await cleaner.actions.clean({ ids, permanent: false }, { platform: process.platform, trash: trashItem });
-      fs.appendFileSync(path.join(app.getPath('userData'), 'scheduled-cleanup.log'), `${new Date().toISOString()} moved ${result.removed}; skipped ${result.skippedCount}\n`);
+      appendScheduledLog(`moved ${result.removed} to Recycle Bin; skipped ${result.skippedCount}`);
       app.exit(0);
     } catch (err) {
-      try { fs.appendFileSync(path.join(app.getPath('userData'), 'scheduled-cleanup.log'), `${new Date().toISOString()} failed: ${err.message}\n`); } catch {}
+      try { appendScheduledLog(`failed: ${err.message}`); } catch {}
       app.exit(1);
     }
     return;

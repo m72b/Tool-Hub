@@ -35,7 +35,8 @@ async function saveHosts(params, ctx) {
   if (typeof params.content !== 'string' || params.content.length > 1024 * 1024) safe.fail('Hosts content must be under 1 MB');
   const target = hostsPath();
   const backup = path.join(backupDir(ctx), backupName('hosts', 'bak'));
-  await fs.promises.copyFile(target, backup);
+  try { await fs.promises.copyFile(target, backup); }
+  catch (err) { safe.fail(`Could not back up the hosts file before saving (check file permissions or run Tool Hub as administrator): ${err.message}`); }
   const temp = path.join(path.dirname(target), `.hosts-toolhub-${process.pid}-${Date.now()}.tmp`);
   try {
     await fs.promises.writeFile(temp, params.content, 'utf8');

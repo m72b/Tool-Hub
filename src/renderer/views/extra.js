@@ -120,7 +120,7 @@
               h('span', { class: 'mono', text: String(item.pid) }),
               h('span', { class: 'ellipsis', text: item.process || 'Unknown process' }),
               h('button', { class: 'btn btn-sm btn-danger', type: 'button', text: 'Stop', onclick: async () => {
-                if (!window.confirm(`Stop ${item.process || 'PID ' + item.pid}? Any work in that process may be lost.`)) return;
+                if (!window.confirm(`Stop ${item.process || 'PID ' + item.pid} and its child processes? Windows will force-stop the entire process tree; unsaved work may be lost.`)) return;
                 const res = await api.invoke('kill', { pid: item.pid });
                 if (!res.ok) { api.toast(res.error, 'error'); return; }
                 api.toast(`Stopped process ${item.pid}`, 'ok');
