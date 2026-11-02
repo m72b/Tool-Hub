@@ -1,7 +1,7 @@
 {
   "id": "pdf-tools",
   "name": "PDF Tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Merge, split, compress, convert, edit, sign, protect, OCR and compare PDFs — all on your computer.",
   "minAppVersion": "4.0.0",
   "tools": [

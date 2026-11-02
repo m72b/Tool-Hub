@@ -194,7 +194,7 @@ async function musicbrainz(params) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'm72b-toolhub/3.0 (https://github.com/m72b/m72b-File-Formatter)' },
+      headers: { 'User-Agent': 'tool-hub/4.1 (https://github.com/m72b/Tool-Hub)' },
     });
     if (!response.ok) safe.fail(`MusicBrainz returned ${response.status}`);
     return { ok: true, data: await response.json() };

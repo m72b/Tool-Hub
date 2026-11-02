@@ -1,8 +1,8 @@
 {
   "name": "tool-hub",
-  "version": "4.0.1",
+  "version": "4.1.0",
   "author": "m72b",
-  "description": "m72b Tool Hub - modular file, cleanup and system utilities",
+  "description": "Tool Hub - modular file, cleanup and system utilities",
   "main": "main.js",
   "bin": {
     "toolhub": "./cli.js"
@@ -19,14 +19,14 @@
   },
   "build": {
     "appId": "com.m72b.toolhub",
-    "productName": "m72b Tool Hub",
+    "productName": "Tool Hub",
     "directories": {
       "output": "dist"
     },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "artifactName": "m72b-tool-hub-Setup-${version}.${ext}"
+      "artifactName": "tool-hub-Setup-${version}.${ext}"
     },
     "nsis": {
       "include": "build/installer.nsh",

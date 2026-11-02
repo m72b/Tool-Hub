@@ -223,7 +223,7 @@
   function addPdfAMetadata(doc, title, iccBytes) {
     const now = new Date();
     const iso = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
-    doc.setProducer('m72b Tool Hub');
+    doc.setProducer('Tool Hub');
     doc.setModificationDate(now);
     if (!doc.getCreationDate()) doc.setCreationDate(now);
     if (title) doc.setTitle(title);
@@ -235,7 +235,7 @@
 <dc:format>application/pdf</dc:format>
 ${title ? `<dc:title><rdf:Alt><rdf:li xml:lang="x-default">${xmlEscape(title)}</rdf:li></rdf:Alt></dc:title>` : ''}
 <xmp:CreateDate>${created}</xmp:CreateDate><xmp:ModifyDate>${iso}</xmp:ModifyDate><xmp:MetadataDate>${iso}</xmp:MetadataDate>
-<pdf:Producer>m72b Tool Hub</pdf:Producer>
+<pdf:Producer>Tool Hub</pdf:Producer>
 </rdf:Description></rdf:RDF></x:xmpmeta>
 <?xpacket end="w"?>`;
     const context = doc.context;

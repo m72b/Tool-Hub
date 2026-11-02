@@ -10,7 +10,7 @@ Ship Tool Hub as a small core shell. Every tool — including the ones built in 
 
 | Part | Installed size | Can add-ons remove it? |
 |---|---|---|
-| Electron runtime (`m72b Tool Hub.exe`, Chromium DLLs, ICU data, V8 snapshots) | ~210 MB | No — every Electron app needs it |
+| Electron runtime (`Tool Hub.exe`, Chromium DLLs, ICU data, V8 snapshots) | ~210 MB | No — every Electron app needs it |
 | Chromium language packs (`locales/`, 55 languages) | 39 MB | No, but most can be **dropped at build time** |
 | Chromium license file | 9 MB | No (must ship) |
 | **All Tool Hub code + its libraries** (`app.asar`) | **1.5 MB** | Yes |
