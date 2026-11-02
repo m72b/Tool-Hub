@@ -10,9 +10,15 @@ const STABLE_FOR_MS = 3000;
 function keyFor(folder) { return process.platform === 'win32' ? folder.toLowerCase() : folder; }
 
 function matches(rule, file) {
-  if (rule.type === 'date' || rule.type === 'exifDate') {
-    const year = rule.type === 'exifDate' ? Number(file.tags?.DateTaken?.slice(0, 4)) : new Date(file.mtime).getFullYear();
-    return Number.isFinite(year) && (!!rule.dateFrom || !!rule.dateTo) && (!rule.dateFrom || year >= Number(rule.dateFrom)) && (!rule.dateTo || year <= Number(rule.dateTo));
+  // Same semantics as the Organizer view: a year range is required for "date",
+  // while "exifDate" matches any photo with a capture date inside the optional range.
+  if (rule.type === 'exifDate') {
+    const year = Number(file.tags?.DateTaken?.slice(0, 4));
+    return !!file.tags?.DateTaken && Number.isFinite(year) && (!rule.dateFrom || year >= Number(rule.dateFrom)) && (!rule.dateTo || year <= Number(rule.dateTo));
+  }
+  if (rule.type === 'date') {
+    const year = new Date(file.mtime).getFullYear();
+    return (!!rule.dateFrom || !!rule.dateTo) && (!rule.dateFrom || year >= Number(rule.dateFrom)) && (!rule.dateTo || year <= Number(rule.dateTo));
   }
   if (rule.type === 'size') return (!!rule.sizeMin || !!rule.sizeMax) && (!rule.sizeMin || file.size >= Number(rule.sizeMin) * ({ KB: 1024, MB: 1048576, GB: 1073741824 }[rule.sizeMinUnit] || 1048576)) && (!rule.sizeMax || file.size <= Number(rule.sizeMax) * ({ KB: 1024, MB: 1048576, GB: 1073741824 }[rule.sizeMaxUnit] || 1048576));
   const pattern = String(rule.match || '').trim();
@@ -23,7 +29,7 @@ function matches(rule, file) {
 
 function destinationFor(rule, file) {
   const date = file.tags?.DateTaken || '';
-  const destination = rule.dest.replace(/\{year\}/gi, date.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, date.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
+  const destination = rule.dest.trim().replace(/[\\/]+$/, '').replace(/\{year\}/gi, date.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, date.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
   if (!destination || path.isAbsolute(destination) || destination.includes('\0') || destination.split(/[\\/]/).some(part => !safe.safeEntryName(part))) return null;
   return destination;
 }
@@ -61,7 +67,7 @@ async function start(params) {
   if (watchers.get(key)?.running) return publicStatus(watchers.get(key));
 
   const state = { folder, rules, running: true, moved: 0, stability: new Map(), destinations: new Set(), log: [], lastError: null, timer: null, watcher: null, busy: false };
-  for (const rule of rules) if (!/\{(?:year|month)\}/i.test(rule.dest)) state.destinations.add(path.resolve(folder, rule.dest));
+  for (const rule of rules) if (!/\{(?:year|month)\}/i.test(rule.dest)) state.destinations.add(path.resolve(folder, destinationFor(rule, { mtime: Date.now() })));
   watchers.set(key, state);
   addLog(state, 'Watcher started; files must stay unchanged for 3 seconds before moving.');
 

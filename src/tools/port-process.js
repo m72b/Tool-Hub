@@ -1,7 +1,7 @@
 const safe = require('../core/safe');
 
 async function windowsProcesses() {
-  const res = await safe.run('netstat.exe', ['-ano', '-p', 'tcp']);
+  const res = await safe.run('netstat.exe', ['-ano']);
   if (!res.ok) safe.fail(res.stderr.trim() || 'Could not read listening ports');
   const rows = [];
   const seen = new Set();

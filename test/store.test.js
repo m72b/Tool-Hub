@@ -1,9 +1,10 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
 const {createStore}=require(require('path').join(__dirname,'..','src','core/store'));
+const CORE=require(require('path').join(__dirname,'..','src','core/registry')).coreIds().sort();
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'store-'));
 let s=createStore(dir,'win32');
 let st=s.load();
-assert.deepStrictEqual(st.installed.sort(),['organizer','renamer'],'defaults are core only');
+assert.deepStrictEqual(st.installed.sort(),CORE,'defaults are core only');
 assert.strictEqual(st.setupComplete,false);
 s.install('duplicates');
 assert.ok(s.isInstalled('duplicates'),'installed');
@@ -25,6 +26,6 @@ assert.strictEqual(s2.load().setupComplete,true);
 // corrupt file
 fs.writeFileSync(path.join(dir,'installed-tools.json'),'{{{not json');
 let s3=createStore(dir,'win32');
-assert.deepStrictEqual(s3.load().installed.sort(),['organizer','renamer'],'corrupt falls back');
+assert.deepStrictEqual(s3.load().installed.sort(),CORE,'corrupt falls back');
 fs.rmSync(dir,{recursive:true,force:true});
 console.log('store.js: all checks passed');

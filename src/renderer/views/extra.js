@@ -96,7 +96,7 @@
           wrap.appendChild(h('div', { class: 'stat-row' }, [stat('Entries', fmtNumber(data.count))]));
           if (data.truncated) wrap.appendChild(statusNote('Output was capped at 20,000 entries.', 'warn'));
           wrap.appendChild(h('div', { class: 'action-row' }, [h('button', { class: 'btn btn-accent', type: 'button', text: 'Download tree', onclick: () => downloadFile(`${data.format === 'markdown' ? 'directory-tree.md' : 'directory-tree.txt'}`, data.text, 'text/plain;charset=utf-8') })]));
-          wrap.appendChild(h('textarea', { class: 'input mono', rows: '20', readonly: true, value: data.text }));
+          wrap.appendChild(h('textarea', { class: 'input mono', rows: '20', readonly: true, text: data.text }));
           return wrap;
         },
       }, api);
@@ -196,7 +196,10 @@
         const input = h('textarea', { class: 'input mono', rows: '8', placeholder: active === 'JSON Formatter' ? '{"key":"value"}' : 'Enter text…' });
         const output = h('textarea', { class: 'input mono', rows: '8', readonly: true, placeholder: 'Result' });
         const note = h('div', { class: 'field-hint' });
-        const run = h('button', { class: 'btn btn-accent', type: 'button', text: 'Run', onclick: () => {
+        const compare = h('textarea', { class: 'input mono', rows: '8', placeholder: 'Second text' });
+        const flags = h('input', { class: 'input mono', type: 'text', value: 'gi', placeholder: 'Flags' });
+        const source = h('textarea', { class: 'input mono', rows: '4', placeholder: 'Text to test' });
+        const run =h('button', { class: 'btn btn-accent', type: 'button', text: 'Run', onclick: () => {
           try {
             if (active === 'JSON Formatter') output.value = JSON.stringify(JSON.parse(input.value), null, 2);
             else if (active === 'Base64') output.value = btoa(unescape(encodeURIComponent(input.value)));
@@ -211,11 +214,8 @@
           const decode = h('button', { class: 'btn', type: 'button', text: 'Decode Base64', onclick: () => { try { output.value = decodeURIComponent(escape(atob(input.value.trim()))); note.textContent = ''; } catch (err) { note.textContent = 'Input is not valid Base64 text.'; } } });
           body.appendChild(h('div', { class: 'action-row' }, [run, decode]));
         } else if (active === 'Text Diff') {
-          const compare = h('textarea', { class: 'input mono', rows: '8', placeholder: 'Second text' });
           body.appendChild(input); body.appendChild(compare); body.appendChild(h('div', { class: 'action-row' }, [run]));
         } else if (active === 'Regex Tester') {
-          const flags = h('input', { class: 'input mono', type: 'text', value: 'gi', placeholder: 'Flags' });
-          const source = h('textarea', { class: 'input mono', rows: '4', placeholder: 'Text to test' });
           body.appendChild(input); body.appendChild(flags); body.appendChild(source); body.appendChild(h('div', { class: 'action-row' }, [run]));
         } else {
           if (active === 'UUID Generator') input.value = '1';

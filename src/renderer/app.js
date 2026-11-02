@@ -83,14 +83,15 @@
       const tool = catalog?.tools.find(entry => entry.id === item.toolId);
       const card = h('div', { class: 'activity-entry' }, [h('span', { class: 'activity-date', text: new Date(item.at).toLocaleString() }), h('strong', { text: `${tool?.name || item.toolId} · ${item.action}` }), h('span', { class: 'muted', text: item.summary || '' })]);
       if (item.undo) card.appendChild(h('button', { class: 'btn btn-sm', type: 'button', text: 'Undo', onclick: async e => {
-        e.currentTarget.disabled = true;
+        const button = e.currentTarget;
+        button.disabled = true;
         let result = await window.hub.invoke(item.undo.toolId, item.undo.action, item.undo.params);
         if (!result.ok && /Choose this folder or file using the app picker/i.test(result.error || '') && item.undo.params.folder) {
           const chosen = await window.hub.pickFolder('Select the original folder to authorize this undo');
           const same = chosen && (window.hub.platform === 'win32' ? chosen.toLowerCase() === item.undo.params.folder.toLowerCase() : chosen === item.undo.params.folder);
           if (same) result = await window.hub.invoke(item.undo.toolId, item.undo.action, item.undo.params);
         }
-        if (!result.ok) { toast(`Undo failed: ${result.error}`, 'error'); e.currentTarget.disabled = false; return; }
+        if (!result.ok) { toast(`Undo failed: ${result.error}`, 'error'); button.disabled = false; return; }
         item.undo = null; writeList(ACTIVITY_KEY, events); toast('Change undone', 'ok'); overlay.remove();
       } }));
       list.appendChild(card);
@@ -394,7 +395,7 @@
   }
 
   function openCommandPalette() {
-    if (!catalog) return;
+    if (!catalog || document.querySelector('.palette-overlay')) return;
     const overlay = h('div', { class: 'palette-overlay' });
     const panel = h('div', { class: 'command-palette', role: 'dialog', 'aria-modal': 'true' });
     const input = h('input', { class: 'input command-input', type: 'text', placeholder: 'Search tools…', autocomplete: 'off' });

@@ -74,7 +74,7 @@ async function apply(params, ctx) {
       const res = await safe.powershellJson(
         '$ErrorActionPreference="Stop";$d=[DateTime]::Parse($env:MTB_DATE,[Globalization.CultureInfo]::InvariantCulture);' +
         '$paths=Get-Content -LiteralPath $env:MTB_LIST -Encoding UTF8;' +
-        '$paths | Where-Object { $_ } | ForEach-Object { try { (Get-Item -LiteralPath $_ -Force).CreationTime=$d; [PSCustomObject]@{Path=$_;Ok=$true;Error=""} } catch { [PSCustomObject]@{Path=$_;Ok=$false;Error=$_.Exception.Message} } } | ConvertTo-Json -Compress',
+        '$paths | Where-Object { $_ } | ForEach-Object { $p=$_; try { (Get-Item -LiteralPath $p -Force).CreationTime=$d; [PSCustomObject]@{Path=$p;Ok=$true;Error=""} } catch { [PSCustomObject]@{Path=$p;Ok=$false;Error=$_.Exception.Message} } } | ConvertTo-Json -Compress',
         { env: { MTB_LIST: listFile, MTB_DATE: created.toISOString() }, timeout: 60000 }
       );
       if (!res.ok) failed.push({ path: root, error: res.error || 'Could not set created date' });

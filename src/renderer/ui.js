@@ -274,6 +274,7 @@ function toolShell(def, api) {
   };
 
   const run = async () => {
+    if (currentJobId) return;
     if (def.validate) {
       const problem = def.validate(state);
       if (problem) {

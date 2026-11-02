@@ -17,7 +17,9 @@ await assert.rejects(async()=>N.actions.lookup({host:'bad host'}),/invalid chara
 const sample=`Pinging example.com [93.184.216.34] with 32 bytes of data:
 Reply from 93.184.216.34: bytes=32 time=12ms TTL=56
 Reply from 93.184.216.34: bytes=32 time=15ms TTL=56
-Packets: Sent = 2, Received = 2, Lost = 0 (0% loss),`;
+Packets: Sent = 2, Received = 2, Lost = 0 (0% loss),
+Approximate round trip times in milli-seconds:
+    Minimum = 12ms, Maximum = 15ms, Average = 13ms`;
 const p=N.parsePing(sample);
 assert.deepStrictEqual(p.times,[12,15],'times parsed');
 assert.strictEqual(p.summary.avg,13.5,'avg');

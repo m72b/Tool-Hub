@@ -343,9 +343,9 @@
               else changes[key] = v === 'on';
             },
           }, [
-            h('option', { value: 'keep', text: 'Leave unchanged' }),
-            h('option', { value: 'on', text: 'Set' }),
-            h('option', { value: 'off', text: 'Clear' }),
+            h('option', { value: 'keep', text: 'Leave unchanged', selected: changes[key] === undefined }),
+            h('option', { value: 'on', text: 'Set', selected: changes[key] === true }),
+            h('option', { value: 'off', text: 'Clear', selected: changes[key] === false }),
           ]);
           return h('div', { class: 'field' }, [
             h('label', { class: 'field-label', text: key }),
@@ -437,6 +437,7 @@
           const input = h('input', {
             class: 'input',
             type: 'datetime-local',
+            value: dates[key],
             disabled: key === 'created' && api.platform !== 'win32',
             oninput: e => { dates[key] = e.target.value; },
           });

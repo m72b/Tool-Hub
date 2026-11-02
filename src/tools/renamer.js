@@ -134,9 +134,11 @@ function resolveRename(folder, item) {
 async function rename(params) {
   const folder = safe.existingDir(params.folder);
   const { item, source, target } = resolveRename(folder, params);
-  const samePath = source.toLowerCase() === target.toLowerCase();
-  if (!samePath && fs.existsSync(target)) safe.fail('A file with that name already exists');
-  if (source !== target && samePath) {
+  // A case-only rename is safe only when the target is the same file (case-insensitive
+  // filesystem); on case-sensitive filesystems it may be a different file that must not be replaced.
+  const caseOnly = source !== target && source.toLowerCase() === target.toLowerCase() && safe.sameFile(source, target);
+  if (source !== target && !caseOnly && fs.existsSync(target)) safe.fail('A file with that name already exists');
+  if (caseOnly) {
     const temp = path.join(path.dirname(source), `.toolhub-rename-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     fs.renameSync(source, temp);
     try { fs.renameSync(temp, target); } catch (err) { fs.renameSync(temp, source); throw err; }
@@ -150,13 +152,15 @@ async function renameBatch(params) {
   const folder = safe.existingDir(params.folder);
   if (!Array.isArray(params.items) || params.items.length > 5000) safe.fail('Invalid rename batch');
   const plan = params.items.map(item => resolveRename(folder, item));
-  const sources = new Set(plan.map(p => p.source.toLowerCase()));
+  const fileId = file => { try { const st = fs.statSync(file, { bigint: true }); return `${st.dev}:${st.ino}`; } catch { return null; } };
+  const sourceIds = new Set(plan.map(p => fileId(p.source)).filter(Boolean));
   const targets = new Set();
   for (const entry of plan) {
     const key = entry.target.toLowerCase();
     if (targets.has(key)) safe.fail('Multiple files cannot be renamed to the same name');
     targets.add(key);
-    if (fs.existsSync(entry.target) && !sources.has(key)) safe.fail(`A file with the name "${path.basename(entry.target)}" already exists`);
+    // An existing target is acceptable only when it is itself one of the files being renamed.
+    if (fs.existsSync(entry.target) && !sourceIds.has(fileId(entry.target))) safe.fail(`A file with the name "${path.basename(entry.target)}" already exists`);
   }
   const changed = plan.filter(p => p.source !== p.target);
   const staged = [];

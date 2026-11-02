@@ -82,6 +82,16 @@ function assertInside(roots, target) {
   return resolved;
 }
 
+function sameFile(a, b) {
+  try {
+    const x = fs.statSync(a, { bigint: true });
+    const y = fs.statSync(b, { bigint: true });
+    return x.dev === y.dev && x.ino === y.ino;
+  } catch {
+    return false;
+  }
+}
+
 function safeEntryName(name) {
   return typeof name === 'string'
     && name.length > 0
@@ -131,7 +141,7 @@ function run(command, args, options = {}) {
     }
   }
   return new Promise(resolve => {
-    execFile(command, args, { timeout, maxBuffer, windowsHide: true, shell: false, env }, (err, stdout, stderr) => {
+    execFile(command, args, { timeout, maxBuffer, windowsHide: true, shell: false, env, ...(options.cwd ? { cwd: options.cwd } : {}) }, (err, stdout, stderr) => {
       if (err && err.code === 'ENOENT') {
         resolve({ ok: false, code: 'ENOENT', stdout: '', stderr: `${command} is not available on this system` });
         return;
@@ -210,6 +220,7 @@ module.exports = {
   existingFile,
   isInside,
   assertInside,
+  sameFile,
   safeEntryName,
   validHost,
   toInt,
