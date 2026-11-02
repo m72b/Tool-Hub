@@ -5,6 +5,7 @@ Add-ons let Tool Hub stay small: optional feature sets (like **PDF Tools**) ship
 - [For users: installing an add-on](#installing-an-add-on)
 - [Why add-ons are signed](#why-add-ons-are-signed)
 - [Building and signing the official add-ons](#building-and-signing-the-official-add-ons)
+- [Third-party add-ons](#third-party-add-ons)
 - [Making your own personal add-on](#making-your-own-personal-add-on)
 - [Add-on reference](#add-on-reference)
 
@@ -27,7 +28,8 @@ An add-on runs with the same access to your files as Tool Hub itself. To make su
 
 - Every add-on is signed with an **Ed25519** private key. The signature covers the add-on's manifest and the SHA-256 hash of every file inside, so any change to the package after signing is detected and the install is refused.
 - Tool Hub ships with one built-in trusted key: the official m72b release key. Add-ons from the official releases install without any extra steps.
-- You can also trust **personal keys** (yours, or someone you know) under **Tool Library → Add-ons → Trusted keys**. The install dialog always shows which key signed an add-on, and warns when it is not the official one.
+- Add-ons from other authors are [checked and authorized by an admin](#third-party-add-ons) before they are signed with the official key.
+- For developing and testing your own add-ons, you can trust a **personal key** on your own devices under **Tool Library → Add-ons → Trusted keys**. The install dialog always shows which key signed an add-on, and warns when it is not the official one.
 - Add-ons declare which Tool Hub versions they work with (`minAppVersion` / `maxAppVersion`); incompatible ones are refused instead of failing at runtime.
 
 Only trust keys from people you know. Trusting a key means trusting every add-on that key signs.
@@ -55,6 +57,17 @@ Release checklist:
 3. `npm run addon:build -- addons/pdf-tools`
 4. Upload `dist/addons/<id>-<version>.thaddon` to the GitHub release next to the app installer.
 
+## Third-party add-ons
+
+Add-ons written by anyone other than the Tool Hub maintainer **must be checked and authorized by a Tool Hub admin** before they are published for everyone.
+
+1. Build and test your add-on on your own computer (see [Making your own personal add-on](#making-your-own-personal-add-on)).
+2. [Open an issue](../../issues) asking for review, and attach your add-on's source folder or `.thaddon` file.
+3. An admin reviews the code and what it can access. If it is approved, the admin signs it with the official release key.
+4. The approved add-on is published, and every Tool Hub install shows **"Authorized by …"** with the admin's name in the install dialog and on the add-on's card.
+
+The "Authorized by" name is stored inside the signature, so it cannot be added or changed without invalidating the file. An add-on without official authorization only installs on devices where the user has deliberately trusted its author's key.
+
 ## Making your own personal add-on
 
 You can extend Tool Hub with your own tools without changing the app.
@@ -69,7 +82,7 @@ This prints your **public key** (one base64 line) and a fingerprint. Keep the `.
 
 ### 2. Trust your key in Tool Hub
 
-Open **Tool Library → Add-ons → Trusted keys**, enter a name (for example "My add-ons"), paste the public key and click **Trust this key**. Anyone who wants to install your add-ons does the same with your public key.
+Open **Tool Library → Add-ons → Trusted keys**, enter a name (for example "My add-ons"), paste the public key and click **Trust this key**. This is for your own devices while you develop. To share the add-on with other people, submit it for [admin authorization](#third-party-add-ons).
 
 ### 3. Write the add-on
 

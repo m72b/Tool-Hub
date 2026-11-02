@@ -25,7 +25,6 @@ const MODULE_FILES = {
   'tree-export': 'tree-export',
   'port-process': 'port-process',
   'system-editor': 'system-editor',
-  utilities: 'utilities',
   'folder-sync': 'advanced-files',
   'file-type': 'advanced-files',
   'archive-tool': 'advanced-files',
@@ -35,7 +34,6 @@ const MODULE_FILES = {
   'watch-folder': 'watch-folder',
   'scheduled-cleanup': 'scheduled-cleanup',
   'disk-benchmark': 'disk-benchmark',
-  workflows: 'utilities',
 };
 
 function createHost(options) {

@@ -1,6 +1,6 @@
 {
   "name": "tool-hub",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "author": "m72b",
   "description": "m72b Tool Hub - modular file, cleanup and system utilities",
   "main": "main.js",

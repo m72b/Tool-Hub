@@ -71,9 +71,17 @@ function validateManifest(manifest) {
   return manifest;
 }
 
+function cleanAuthorizer(value) {
+  const text = String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  if (text.length > 80) fail('Authorizer name must be 80 characters or fewer');
+  return text;
+}
+
 // Build a signed package from a folder. `files` is a list of paths relative to `root` (forward slashes).
-function pack({ root, files, manifest, privateKeyPem }) {
+// `authorizer` (optional) is the name of whoever approved the add-on; it is covered by the signature.
+function pack({ root, files, manifest, privateKeyPem, authorizer, origin }) {
   validateManifest(manifest);
+  const approvedBy = cleanAuthorizer(authorizer);
   const privateKey = crypto.createPrivateKey(privateKeyPem);
   const publicKey = crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64');
   const fs = require('fs');
@@ -88,7 +96,10 @@ function pack({ root, files, manifest, privateKeyPem }) {
     blobs.push(compressed);
     offset += compressed.length;
   }
-  const header = Buffer.from(JSON.stringify({ format: 1, manifest, keyId: keyId(publicKey), files: entries }), 'utf8');
+  const fields = { format: 1, manifest, keyId: keyId(publicKey), files: entries };
+  if (approvedBy) Object.assign(fields, { authorizer: approvedBy, authorizedAt: new Date().toISOString() });
+  if (origin) fields.origin = String(origin).slice(0, 64);
+  const header = Buffer.from(JSON.stringify(fields), 'utf8');
   const signature = crypto.sign(null, header, privateKey);
   const lengths = Buffer.alloc(4);
   lengths.writeUInt32LE(header.length);
@@ -98,8 +109,17 @@ function pack({ root, files, manifest, privateKeyPem }) {
 }
 
 // Parse and verify a package against a list of trusted keys ({ name, publicKey }).
-// Returns { manifest, signer, files, extract(rel) -> Buffer }.
+// Returns { manifest, signer, authorizer, authorizedAt, files, extract(rel) -> Buffer }.
 function open(buffer, trustedKeys) {
+  return parse(buffer, trustedKeys, true);
+}
+
+// Parse a package without requiring a trusted signature (for reviewing add-ons before they are approved). File integrity is still checked on extract; `signer` is null when no given key matches.
+function readUnverified(buffer, knownKeys = []) {
+  return parse(buffer, knownKeys, false);
+}
+
+function parse(buffer, trustedKeys, requireTrusted) {
   if (!Buffer.isBuffer(buffer) || buffer.length < MAGIC.length + 6) fail('This is not a Tool Hub add-on file');
   if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) fail('This is not a Tool Hub add-on file');
   let pos = MAGIC.length;
@@ -117,7 +137,7 @@ function open(buffer, trustedKeys) {
       return crypto.verify(null, headerBytes, key, signature);
     } catch { return false; }
   });
-  if (!signer) fail('The add-on signature is not from a trusted key. Only install add-ons from people you trust, and add their public key under Trusted keys first.');
+  if (!signer && requireTrusted) fail('The add-on signature is not from a trusted key. Only install add-ons from people you trust, and add their public key under Trusted keys first.');
 
   let header;
   try { header = JSON.parse(headerBytes.toString('utf8')); } catch { fail('Add-on header is damaged'); }
@@ -141,7 +161,12 @@ function open(buffer, trustedKeys) {
     if (data.length !== entry.size || sha256(data) !== entry.sha256) fail(`Add-on file ${rel} failed its integrity check`);
     return data;
   };
-  return { manifest, signer, files: [...files.keys()], extract };
+  return {
+    manifest, signer: signer || null, keyId: typeof header.keyId === 'string' ? header.keyId : null,
+    authorizer: typeof header.authorizer === 'string' ? cleanAuthorizer(header.authorizer) : '',
+    authorizedAt: typeof header.authorizedAt === 'string' ? header.authorizedAt : null,
+    files: [...files.keys()], entries: [...files.values()], extract,
+  };
 }
 
-module.exports = { pack, open, validateManifest, compareVersions, keyId, safeRelativePath, AddonError, ID_PATTERN };
+module.exports = { pack, open, readUnverified, validateManifest, compareVersions, keyId, safeRelativePath, cleanAuthorizer, AddonError, ID_PATTERN };

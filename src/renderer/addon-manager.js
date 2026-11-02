@@ -19,6 +19,7 @@
       h('div', { class: 'modal-title', text: `Install ${info.manifest.name}?` }),
       h('div', { class: 'kv' }, [h('span', { class: 'kv-label', text: 'Version' }), h('span', { class: 'kv-value', text: info.replaces ? `${info.manifest.version} (replaces ${info.replaces})` : info.manifest.version })]),
       h('div', { class: 'kv' }, [h('span', { class: 'kv-label', text: 'Signed by' }), h('span', { class: 'kv-value', text: info.signer })]),
+      info.authorizer ? h('div', { class: 'kv' }, [h('span', { class: 'kv-label', text: 'Authorized by' }), h('span', { class: 'kv-value', text: info.authorizer })]) : null,
       h('div', { class: 'kv' }, [h('span', { class: 'kv-label', text: 'Adds' }), h('span', { class: 'kv-value', text: info.manifest.tools.map(tool => tool.name).join(', ') })]),
       info.manifest.description ? h('p', { class: 'tool-desc', text: info.manifest.description }) : null,
       info.builtIn ? null : statusNote('This add-on is signed with a personal key you trusted, not the official Tool Hub key. It can read and change your files like any other tool.', 'warn'),
@@ -53,6 +54,7 @@
         addon.problem ? statusNote(`Disabled: ${addon.problem}.`, 'warn') : null,
         h('div', { class: 'tool-card-tags' }, [
           h('span', { class: 'tag', text: `Signed by ${addon.signer}` }),
+          addon.authorizer ? h('span', { class: 'tag tag-ok', text: `Authorized by ${addon.authorizer}` }) : null,
           h('button', { class: 'mini-btn mini-danger', type: 'button', text: 'Remove', onclick: async () => {
             if (!window.confirm(`Remove ${addon.name}? Its tools disappear and Tool Hub restarts. Your files are not affected.`)) return;
             const result = await window.hub.addons.remove(addon.id);

@@ -74,7 +74,7 @@ function createAddonManager({ userData, appVersion }) {
       if (!manifest || manifest.id !== dir.name) continue;
       try { format.validateManifest(manifest); } catch { continue; }
       const info = readJson(path.join(addonsDir, dir.name, '.install.json'), {});
-      out.push({ ...manifest, dir: path.join(addonsDir, dir.name), signer: info.signer || 'Unknown', installedAt: info.installedAt || null, problem: compatible(manifest) });
+      out.push({ ...manifest, dir: path.join(addonsDir, dir.name), signer: info.signer || 'Unknown', authorizer: info.authorizer || '', installedAt: info.installedAt || null, problem: compatible(manifest) });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -84,7 +84,7 @@ function createAddonManager({ userData, appVersion }) {
     const pkg = format.open(buffer, trustedKeys());
     const problem = compatible(pkg.manifest);
     const existing = list().find(item => item.id === pkg.manifest.id);
-    return { manifest: pkg.manifest, signer: pkg.signer.name, builtIn: !!pkg.signer.builtIn, problem, replaces: existing ? existing.version : null };
+    return { manifest: pkg.manifest, signer: pkg.signer.name, builtIn: !!pkg.signer.builtIn, authorizer: pkg.authorizer, problem, replaces: existing ? existing.version : null };
   }
 
   function install(buffer) {
@@ -104,7 +104,7 @@ function createAddonManager({ userData, appVersion }) {
         fs.writeFileSync(file, pkg.extract(rel));
       }
       fs.writeFileSync(path.join(staging, 'manifest.json'), JSON.stringify(pkg.manifest, null, 2));
-      fs.writeFileSync(path.join(staging, '.install.json'), JSON.stringify({ signer: pkg.signer.name, keyId: format.keyId(pkg.signer.publicKey), installedAt: new Date().toISOString() }, null, 2));
+      fs.writeFileSync(path.join(staging, '.install.json'), JSON.stringify({ signer: pkg.signer.name, authorizer: pkg.authorizer, keyId: format.keyId(pkg.signer.publicKey), installedAt: new Date().toISOString() }, null, 2));
       if (fs.existsSync(target)) fs.renameSync(target, backup);
       fs.renameSync(staging, target);
       fs.rmSync(backup, { recursive: true, force: true });

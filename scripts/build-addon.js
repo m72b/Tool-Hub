@@ -42,7 +42,7 @@ function copyTree(from, to) {
 async function main() {
   const args = process.argv.slice(2);
   const repoRoot = path.resolve(__dirname, '..');
-  const addonDir = path.resolve(args.find(a => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--key' && args[args.indexOf(a) - 1] !== '--out') || 'addons/pdf-tools');
+  const addonDir = path.resolve(args.find((a, i) => !a.startsWith('--') && !['--key', '--out', '--authorizer'].includes(args[i - 1])) || 'addons/pdf-tools');
   const keyFile = path.resolve(argValue(args, '--key') || process.env.TOOLHUB_ADDON_KEY || path.join(os.homedir(), '.toolhub', 'addon-signing-key.pem'));
   const outDir = path.resolve(argValue(args, '--out') || path.join(repoRoot, 'dist', 'addons'));
 
@@ -56,7 +56,7 @@ async function main() {
     const buildScript = path.join(addonDir, 'build.js');
     if (fs.existsSync(buildScript)) await require(buildScript)({ addonDir, stageDir, repoRoot });
     const files = collect(stageDir).sort();
-    const { buffer, keyId } = pack({ root: stageDir, files, manifest, privateKeyPem: fs.readFileSync(keyFile, 'utf8') });
+    const { buffer, keyId } = pack({ root: stageDir, files, manifest, privateKeyPem: fs.readFileSync(keyFile, 'utf8'), authorizer: argValue(args, '--authorizer') || '' });
     fs.mkdirSync(outDir, { recursive: true });
     const output = path.join(outDir, `${manifest.id}-${manifest.version}.thaddon`);
     fs.writeFileSync(output, buffer);
