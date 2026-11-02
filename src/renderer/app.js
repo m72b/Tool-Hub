@@ -5,6 +5,7 @@
 
   let catalog = null;
   let activeId = null;
+  let queuedOpenFolder = null;
   const FAVORITES_KEY = 'toolhub_favorites_v1';
   const RECENT_KEY = 'toolhub_recent_v1';
   const ACTIVITY_KEY = 'toolhub_activity_v1';
@@ -38,7 +39,8 @@
       onProgress: (jobId, callback) => window.hub.onProgress(jobId, callback),
       toast,
       pickFolder: title => window.hub.pickFolder(title),
-      pickFiles: () => window.hub.pickFiles(),
+      pickFiles: options => window.hub.pickFiles(options),
+      saveFile: options => window.hub.saveFile(options),
       reveal: target => window.hub.reveal(target),
       platform: window.hub.platform,
     };
@@ -74,27 +76,34 @@
 
   function openActivityLog() {
     const overlay = h('div', { class: 'palette-overlay' }), panel = h('div', { class: 'command-palette activity-panel', role: 'dialog', 'aria-modal': 'true' });
-    const title = h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Activity Log' }), h('span', { class: 'muted', text: 'Undo is available for recorded renames and Organizer moves.' }), h('button', { class: 'mini-btn', text: 'Close', onclick: () => overlay.remove() })]);
+    const title = h('div', { class: 'group-head' }, [h('div', { class: 'activity-head' }, [h('span', { class: 'group-title', text: 'Activity Log' }), h('span', { class: 'group-sub', text: 'Undo is available for recorded renames and Organizer moves.' })]), h('button', { class: 'mini-btn', type: 'button', text: 'Close', onclick: () => overlay.remove() })]);
     const list = h('div', { class: 'command-list' });
     const events = readList(ACTIVITY_KEY);
     if (!events.length) list.appendChild(h('div', { class: 'command-empty', text: 'No file changes recorded yet.' }));
     for (const item of events) {
       const tool = catalog?.tools.find(entry => entry.id === item.toolId);
-      const card = h('div', { class: 'activity-entry' }, [h('span', { class: 'activity-date', text: new Date(item.at).toLocaleString() }), h('strong', { text: `${tool?.name || item.toolId} · ${item.action}` }), h('span', { class: 'muted', text: item.summary || '' })]);
+      const card = h('div', { class: 'activity-entry' }, [
+        h('span', { class: 'activity-date', text: new Date(item.at).toLocaleString() }),
+        h('div', { class: 'activity-main' }, [h('strong', { class: 'activity-title', text: `${tool?.name || item.toolId} · ${item.action}` }), h('span', { class: 'activity-summary', text: item.summary || '', title: item.summary || '' })]),
+      ]);
       if (item.undo) card.appendChild(h('button', { class: 'btn btn-sm', type: 'button', text: 'Undo', onclick: async e => {
-        e.currentTarget.disabled = true;
+        const button = e.currentTarget;
+        button.disabled = true;
         let result = await window.hub.invoke(item.undo.toolId, item.undo.action, item.undo.params);
         if (!result.ok && /Choose this folder or file using the app picker/i.test(result.error || '') && item.undo.params.folder) {
           const chosen = await window.hub.pickFolder('Select the original folder to authorize this undo');
           const same = chosen && (window.hub.platform === 'win32' ? chosen.toLowerCase() === item.undo.params.folder.toLowerCase() : chosen === item.undo.params.folder);
           if (same) result = await window.hub.invoke(item.undo.toolId, item.undo.action, item.undo.params);
         }
-        if (!result.ok) { toast(`Undo failed: ${result.error}`, 'error'); e.currentTarget.disabled = false; return; }
+        if (!result.ok) { toast(`Undo failed: ${result.error}`, 'error'); button.disabled = false; return; }
         item.undo = null; writeList(ACTIVITY_KEY, events); toast('Change undone', 'ok'); overlay.remove();
       } }));
       list.appendChild(card);
     }
-    panel.appendChild(title); panel.appendChild(list); overlay.appendChild(panel); overlay.addEventListener('mousedown', event => { if (event.target === overlay) overlay.remove(); }); document.body.appendChild(overlay);
+    panel.appendChild(title); panel.appendChild(list); overlay.appendChild(panel); overlay.addEventListener('mousedown', event => { if (event.target === overlay) overlay.remove(); });
+    const onKey = event => { if (event.key === 'Escape') overlay.remove(); if (!overlay.isConnected) document.removeEventListener('keydown', onKey); };
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay); panel.tabIndex = -1; panel.focus();
   }
 
   function installedTools() {
@@ -105,7 +114,8 @@
     clear(sidebarEl);
     const all = installedTools();
     const favorites = readList(FAVORITES_KEY).filter(id => all.some(tool => tool.id === id));
-    const recent = readList(RECENT_KEY).filter(id => all.some(tool => tool.id === id)).slice(0, 5);
+    // Recent skips the open tool and favourites so the same entry is not listed twice at the top.
+    const recent = readList(RECENT_KEY).filter(id => id !== activeId && !favorites.includes(id) && all.some(tool => tool.id === id)).slice(0, 4);
     const addQuickGroup = (label, ids) => {
       const tools = ids.map(id => all.find(tool => tool.id === id)).filter(Boolean);
       if (!tools.length) return;
@@ -139,7 +149,7 @@
   }
 
   function addNavItem(tool, favorites = readList(FAVORITES_KEY)) {
-    sidebarEl.appendChild(h('div', { class: 'nav-row' }, [
+    sidebarEl.appendChild(h('div', { class: `nav-row${favorites.includes(tool.id) ? ' is-fav' : ''}` }, [
       h('button', { class: `nav-item${tool.id === activeId ? ' active' : ''}`, type: 'button', onclick: () => openTool(tool.id) }, [h('span', { class: 'nav-icon', text: tool.icon }), h('span', { class: 'nav-text', text: tool.name })]),
       h('button', { class: `nav-favorite${favorites.includes(tool.id) ? ' active' : ''}`, type: 'button', title: favorites.includes(tool.id) ? 'Remove favorite' : 'Add favorite', text: favorites.includes(tool.id) ? '★' : '☆', onclick: e => { e.stopPropagation(); const next = readList(FAVORITES_KEY); const index = next.indexOf(tool.id); if (index >= 0) next.splice(index, 1); else next.unshift(tool.id); writeList(FAVORITES_KEY, next); renderSidebar(); } }),
     ]));
@@ -171,8 +181,17 @@
     contentEl.scrollTop = 0;
   }
 
+  function openDroppedFolder(folder) {
+    if (!catalog?.setupComplete) { queuedOpenFolder = folder; return; }
+    const target = installedTools().some(tool => tool.id === 'renamer') ? 'renamer' : installedTools()[0]?.id;
+    if (target) openTool(target); else openLibrary();
+    document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: folder }));
+  }
+
+  window.hub.onOpenFolder(openDroppedFolder);
+
   function toolCard(tool, selected, onToggle) {
-    const disabled = !tool.supported || tool.core;
+    const disabled = !tool.supported || tool.core || !!tool.addon;
     const box = h('input', {
       type: 'checkbox',
       checked: selected,
@@ -191,6 +210,7 @@
       h('div', { class: 'tool-card-tags' }, [
         h('span', { class: 'tag', text: tool.category }),
         tool.core ? h('span', { class: 'tag tag-core', text: 'Always installed' }) : null,
+        tool.addon ? h('span', { class: 'tag tag-core', text: `Add-on: ${tool.addonName || tool.addon}` }) : null,
         !tool.supported ? h('span', { class: 'tag tag-warn', text: 'Windows only' }) : null,
       ]),
     ]);
@@ -237,14 +257,15 @@
             catalog = await window.hub.tools.setInstalled(Array.from(selection), true);
             toast('Tool selection saved', 'ok');
             const first = installedTools()[0];
-            const pendingFolder = options.afterSave === 'open' ? await window.hub.takeOpenFolder() : null;
-            if (options.afterSave === 'open' && pendingFolder) { openTool(installedTools().some(t => t.id === 'renamer') ? 'renamer' : first?.id); document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: pendingFolder })); }
+            const pendingFolder = options.afterSave === 'open' ? (queuedOpenFolder || await window.hub.takeOpenFolder()) : null;
+            if (options.afterSave === 'open' && pendingFolder) openDroppedFolder(pendingFolder);
             else if (options.afterSave === 'open' && first) openTool(first.id);
             else openLibrary();
           },
         }),
       ]);
       container.appendChild(actions);
+      if (options.afterSave === 'library' && window.AddonManagerUI) container.appendChild(window.AddonManagerUI.render(toast));
 
       for (const category of catalog.categories) {
         const tools = catalog.tools.filter(t => t.category === category);
@@ -384,7 +405,7 @@
   }
 
   function openCommandPalette() {
-    if (!catalog) return;
+    if (!catalog || document.querySelector('.palette-overlay')) return;
     const overlay = h('div', { class: 'palette-overlay' });
     const panel = h('div', { class: 'command-palette', role: 'dialog', 'aria-modal': 'true' });
     const input = h('input', { class: 'input command-input', type: 'text', placeholder: 'Search tools…', autocomplete: 'off' });
@@ -406,17 +427,35 @@
     document.body.appendChild(overlay); draw(); input.focus();
   }
 
+  // Add-on interfaces are plain scripts/styles served from toolhub-addon://<id>/; load them in order before any tool opens.
+  async function loadAddonAssets(addons) {
+    for (const addon of addons || []) {
+      if (addon.problem) continue;
+      for (const href of addon.styles) document.head.appendChild(h('link', { rel: 'stylesheet', href: `toolhub-addon://${addon.id}/${href}` }));
+      for (const src of addon.scripts) {
+        await new Promise(resolve => {
+          const script = document.createElement('script');
+          script.src = `toolhub-addon://${addon.id}/${src}`;
+          script.onload = resolve;
+          script.onerror = () => { console.error(`Add-on ${addon.id}: could not load ${src}`); resolve(); };
+          document.head.appendChild(script);
+        });
+      }
+    }
+  }
+
   async function start() {
     setupChrome();
     applyAppearance();
     catalog = await window.hub.tools.catalog();
+    await loadAddonAssets(catalog.addons);
     if (!catalog.setupComplete) {
       openSetup();
       return;
     }
     renderSidebar();
-    const pendingFolder = await window.hub.takeOpenFolder();
-    if (pendingFolder) { openTool(installedTools().some(t => t.id === 'renamer') ? 'renamer' : installedTools()[0]?.id); document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: pendingFolder })); }
+    const pendingFolder = queuedOpenFolder || await window.hub.takeOpenFolder();
+    if (pendingFolder) openDroppedFolder(pendingFolder);
     else if (installedTools()[0]) openTool(installedTools()[0].id);
     else openLibrary();
   }

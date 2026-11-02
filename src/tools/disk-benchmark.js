@@ -12,7 +12,7 @@ async function run(params, ctx = {}) {
   let handle;
   const started = process.hrtime.bigint();
   try {
-    handle = await fs.promises.open(target, 'wx');
+    handle = await fs.promises.open(target, 'wx+');
     let written = 0;
     while (written < totalBytes) {
       if (ctx.signal?.aborted) { const err = new Error('Operation cancelled'); err.name = 'AbortError'; throw err; }

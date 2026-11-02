@@ -26,7 +26,7 @@ async function index(root, recursive, ctx = {}) {
 async function compare(params, ctx = {}) {
   const left = safe.existingDir(params.left);
   const right = safe.existingDir(params.right);
-  if (left === right) safe.fail('Choose two different folders');
+  if (left === right || (ctx.platform === 'win32' && left.toLowerCase() === right.toLowerCase())) safe.fail('Choose two different folders');
   const mode = ['name', 'size', 'hash'].includes(params.mode) ? params.mode : 'size';
   const recursive = params.recursive !== false;
 

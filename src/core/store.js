@@ -43,6 +43,8 @@ function createStore(userDataDir, platform) {
   }
 
   function isInstalled(id) {
+    // Add-on tools are installed by adding the add-on itself.
+    if (registry.getTool(id)?.addon) return true;
     return load().installed.includes(id);
   }
 

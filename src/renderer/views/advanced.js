@@ -57,7 +57,7 @@
 
   Hub.registerView('archive-tool', { render(api) {
     const root = h('div', { class: 'tool' });
-    let mode = 'create', source = '', outputDir = '', archive = '', destination = '';
+    let mode = 'create', source = '', outputDir = '', archive = '', destination = '', archiveName = 'archive.zip';
     const status = h('div');
     const fields = h('div', { class: 'group-body' });
     const draw = () => {
@@ -67,7 +67,7 @@
         else { const folder = await api.pickFolder(label); if (folder) ({ source, outputDir, destination }[key] = folder); }
         draw();
       } });
-      const name = h('input', { class: 'input', type: 'text', value: 'archive.zip', placeholder: 'archive.zip' });
+      const name = h('input', { class: 'input', type: 'text', value: archiveName, placeholder: 'archive.zip', oninput: e => { archiveName = e.target.value; } });
       fields.appendChild(h('div', { class: 'field-row' }, [h('button', { class: `settings-mode-btn${mode === 'create' ? ' active' : ''}`, text: 'Create ZIP', onclick: () => { mode = 'create'; draw(); } }), h('button', { class: `settings-mode-btn${mode === 'extract' ? ' active' : ''}`, text: 'Extract ZIP', onclick: () => { mode = 'extract'; draw(); } })]));
       if (mode === 'create') fields.appendChild(h('div', { class: 'field-row' }, [choose('Source folder', 'source'), choose('Save in folder', 'outputDir'), name]));
       else fields.appendChild(h('div', { class: 'field-row' }, [choose('ZIP file', 'archive'), choose('Extract into', 'destination')]));
@@ -75,9 +75,10 @@
         if (mode === 'create' ? (!source || !outputDir) : (!archive || !destination)) { api.toast('Choose the required paths first', 'error'); return; }
         if (mode === 'create' && !/^[^\\/:*?"<>|]+\.zip$/i.test(name.value)) { api.toast('Enter a valid .zip filename', 'error'); return; }
         if (!window.confirm(mode === 'create' ? `Create ${name.value} from this folder?` : 'Extract the selected archive here? Existing files may be overwritten.')) return;
-        e.currentTarget.disabled = true; e.currentTarget.textContent = mode === 'create' ? 'Creating…' : 'Extracting…';
+        const button = e.currentTarget;
+        button.disabled = true; button.textContent = mode === 'create' ? 'Creating…' : 'Extracting…';
         const result = await api.invoke('archive', mode === 'create' ? { operation: 'create', root: source, outputDir, name: name.value } : { operation: 'extract', archive, destination });
-        e.currentTarget.disabled = false; e.currentTarget.textContent = mode === 'create' ? 'Create archive' : 'Extract archive';
+        button.disabled = false; button.textContent = mode === 'create' ? 'Create archive' : 'Extract archive';
         if (!result.ok) api.toast(result.error, 'error'); else api.toast(mode === 'create' ? `Archive created: ${result.data.output}` : `Extracted to ${result.data.destination}`, 'ok');
       } })]));
     };
@@ -104,43 +105,31 @@
   Hub.registerView('watch-folder', { render(api) {
     const root = h('div', { class: 'tool' }), status = h('div', { class: 'results' });
     const folderLabel = h('span', { class: 'path-display empty', text: 'No folder selected' });
-    const state = { folder: '', timer: null, busy: false, moved: 0, rules: [] };
-    const stop = () => { if (state.timer) clearInterval(state.timer); state.timer = null; state.busy = false; };
+    const state = { folder: '', watching: false, poll: null };
+    const drawStatus = data => {
+      state.watching = !!data?.watching;
+      start.textContent = state.watching ? 'Stop watching' : 'Start watching';
+      clear(status);
+      status.appendChild(statusNote(data?.lastError ? `Watcher error: ${data.lastError}` : state.watching ? `Watching ${data.folder} · moved ${data.moved} · waiting for ${data.waiting} file(s) to finish` : data?.folder ? 'Watcher stopped.' : 'Not watching.', data?.lastError ? 'error' : 'info'));
+      if (data?.log?.length) status.appendChild(h('div', { class: 'log' }, data.log.slice(0, 8).map(entry => h('div', { class: `log-line${entry.message.includes('Could not') || entry.message.includes('failed') ? ' log-err' : ''}`, text: `${new Date(entry.at).toLocaleTimeString()} · ${entry.message}` }))));
+    };
     const start = h('button', { class: 'btn btn-accent', type: 'button', text: 'Start watching', onclick: async () => {
-      if (state.timer) { stop(); start.textContent = 'Start watching'; status.textContent = 'Watcher stopped.'; return; }
+      if (state.watching) { const result = await api.invoke('stop', { folder: state.folder }); if (result.ok) drawStatus(result.data); else api.toast(result.error, 'error'); return; }
       if (!state.folder) { api.toast('Choose a folder first', 'error'); return; }
-      try { state.rules = JSON.parse(localStorage.getItem('toolhub_org_rules_v1') || '[]').filter(rule => rule.dest); } catch { state.rules = []; }
-      if (!state.rules.length) { api.toast('Save at least one Organizer rule with a destination first', 'error'); return; }
-      const run = async () => {
-        if (!root.isConnected) { stop(); return; }
-        if (state.busy) return; state.busy = true;
-        try {
-          const scan = await api.invoke('readFolder', { folder: state.folder, recursive: true });
-          if (scan.ok) for (const file of scan.data.files) {
-            const rule = state.rules.find(r => {
-              if (r.type === 'date' || r.type === 'exifDate') {
-                const year = r.type === 'exifDate' ? Number(file.tags?.DateTaken?.slice(0, 4)) : new Date(file.mtime).getFullYear();
-                return Number.isFinite(year) && (!!r.dateFrom || !!r.dateTo) && (!r.dateFrom || year >= Number(r.dateFrom)) && (!r.dateTo || year <= Number(r.dateTo));
-              }
-              if (r.type === 'size') return (!!r.sizeMin || !!r.sizeMax) && (!r.sizeMin || file.size >= Number(r.sizeMin) * ({ KB: 1024, MB: 1048576, GB: 1073741824 }[r.sizeMinUnit] || 1048576)) && (!r.sizeMax || file.size <= Number(r.sizeMax) * ({ KB: 1024, MB: 1048576, GB: 1073741824 }[r.sizeMaxUnit] || 1048576));
-              const pattern = String(r.match || '').trim();
-              if (!pattern) return false;
-              const glob = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
-              return new RegExp(pattern.includes('*') || pattern.includes('?') ? `^${glob}$` : glob, 'i').test(file.name);
-            });
-            if (!rule) continue;
-            const destination = String(rule.dest).replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
-            const moved = await api.invoke('move', { folder: state.folder, relativePath: file.relativePath, fileName: file.name, destFolder: destination });
-            if (moved.ok) state.moved++;
-          }
-          status.textContent = `Watching ${state.folder} · moved ${state.moved} file(s) · checks every 5 seconds`;
-        } finally { state.busy = false; }
-      };
-      start.textContent = 'Stop watching'; await run(); state.timer = setInterval(run, 5000);
+      let rules = []; try { rules = JSON.parse(localStorage.getItem('toolhub_org_rules_v1') || '[]').filter(rule => rule.dest); } catch {}
+      const result = await api.invoke('start', { folder: state.folder, rules });
+      if (!result.ok) { api.toast(result.error, 'error'); return; }
+      drawStatus(result.data);
     } });
-    const pick = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose folder', onclick: async () => { const folder = await api.pickFolder('Folder to watch'); if (folder) { state.folder = folder; folderLabel.textContent = folder; folderLabel.classList.remove('empty'); } } });
-    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Watch Folder' }), h('p', { class: 'tool-desc', text: 'Automatically apply saved Organizer filename-pattern rules while this screen is open.' })]));
+    const pick = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose folder', onclick: async () => { const folder = await api.pickFolder('Folder to watch'); if (folder) { state.folder = folder; folderLabel.textContent = folder; folderLabel.classList.remove('empty'); const result = await api.invoke('status', { folder }); if (result.ok) drawStatus(result.data); } } });
+    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'Watch Folder' }), h('p', { class: 'tool-desc', text: 'Automatically apply saved Organizer rules while Tool Hub is running, even when you switch to another tool.' })]));
     root.appendChild(h('div', { class: 'action-row' }, [pick, folderLabel, start])); root.appendChild(status);
+    state.poll = setInterval(async () => {
+      if (!root.isConnected) { clearInterval(state.poll); return; }
+      if (!state.folder) return;
+      const result = await api.invoke('status', { folder: state.folder });
+      if (result.ok) drawStatus(result.data);
+    }, 1500);
     return root;
   } });
 
@@ -194,33 +183,6 @@
     api.invoke('targets', {}).then(result => { if (result.ok) drawTargets(result.data); else results.appendChild(statusNote(result.error, 'error')); }); refreshStatus(); return root;
   } });
 
-  Hub.registerView('pdf-tools', { render(api) {
-    const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
-    let paths = [], outputDir = '', path = '';
-    const nameMerge = h('input', { class: 'input', type: 'text', value: 'merged.pdf' });
-    const nameSplit = h('input', { class: 'input', type: 'text', value: 'pages.pdf' });
-    const start = h('input', { class: 'input', type: 'number', min: '1', value: '1', placeholder: 'First page' });
-    const end = h('input', { class: 'input', type: 'number', min: '1', value: '1', placeholder: 'Last page' });
-    const chooseMany = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose PDFs…', onclick: async () => { const chosen = await api.pickFiles(); paths = (chosen || []).filter(file => file.path.toLowerCase().endsWith('.pdf')).map(file => file.path); results.textContent = `${paths.length} PDF(s) selected`; } });
-    const chooseOne = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose PDF…', onclick: async () => { const chosen = await api.pickFiles(); path = chosen?.find(file => file.path.toLowerCase().endsWith('.pdf'))?.path || ''; results.textContent = path || 'No PDF selected'; } });
-    const chooseOut = () => h('button', { class: 'btn btn-sm', type: 'button', text: 'Save in folder…', onclick: async () => { outputDir = await api.pickFolder('Choose output folder') || outputDir; if (outputDir) results.textContent = `Output folder: ${outputDir}`; } });
-    const doMerge = h('button', { class: 'btn btn-accent', type: 'button', text: 'Merge PDFs', onclick: async () => {
-      if (paths.length < 2 || !outputDir) { api.toast('Choose at least two PDFs and an output folder', 'error'); return; }
-      if (!window.confirm(`Merge ${paths.length} PDFs into ${nameMerge.value}?`)) return;
-      doMerge.disabled = true; const result = await api.invoke('merge', { paths, outputDir, name: nameMerge.value }); doMerge.disabled = false;
-      if (!result.ok) api.toast(result.error, 'error'); else api.toast(`Merged ${result.data.pages} pages to ${result.data.output}`, 'ok');
-    } });
-    const doSplit = h('button', { class: 'btn btn-accent', type: 'button', text: 'Extract page range', onclick: async () => {
-      if (!path || !outputDir) { api.toast('Choose a PDF and output folder', 'error'); return; }
-      doSplit.disabled = true; const result = await api.invoke('split', { path, outputDir, name: nameSplit.value, start: start.value, end: end.value }); doSplit.disabled = false;
-      if (!result.ok) api.toast(result.error, 'error'); else api.toast(`Saved ${result.data.pages} page(s) to ${result.data.output}`, 'ok');
-    } });
-    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'PDF Merge & Split' }), h('p', { class: 'tool-desc', text: 'Merge selected PDFs or extract a page range to a new PDF. Files are processed locally.' })]));
-    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Merge PDFs' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row' }, [chooseMany, chooseOut(), nameMerge, doMerge])])])) ;
-    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Split PDF by page range' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row' }, [chooseOne, chooseOut(), start, end, nameSplit, doSplit])])])) ;
-    root.appendChild(results); return root;
-  } });
-
   Hub.registerView('image-privacy', { render(api) {
     const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
     let folder = '', images = [];
@@ -242,7 +204,7 @@
           const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
           if (mode.value === 'watermark') { const size = Math.max(18, Math.round(canvas.width / 28)); ctx.font = `bold ${size}px sans-serif`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = 'rgba(0,0,0,.58)'; ctx.fillRect(canvas.width * .55, canvas.height - size * 2.2, canvas.width * .42, size * 1.8); ctx.fillStyle = '#fff'; ctx.fillText(text, canvas.width - size, canvas.height - size * .35, canvas.width * .4); }
           const mime = ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' })[file.ext]; const dataUrl = canvas.toDataURL(mime, .94);
-          if (!dryRun.checked) { const saved = await api.invoke('write', { dir: folder, name: file.name, dataUrl, overwrite: true }); if (!saved.ok) throw new Error(saved.error); }
+          if (!dryRun.checked) { const saved = await api.invoke('write', { dir: file.path.slice(0, file.path.length - file.name.length), name: file.name, dataUrl, overwrite: true }); if (!saved.ok) throw new Error(saved.error); }
           done++;
         } catch { failed++; }
       }
@@ -269,12 +231,13 @@
     const save = h('button', { class: 'btn btn-sm', type: 'button', text: 'Save workflow', onclick: () => {
       const name = wfName.value.trim(); if (!name) { api.toast('Enter a workflow name', 'error'); return; }
       const workflow = { id: selected?.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`, name, rename: doRename.checked, template: template.value || '{original}', organize: doOrganize.checked, archive: doArchive.checked, archiveName: archiveName.value || 'archive.zip' };
-      workflows = [workflow, ...workflows.filter(item => item.id !== workflow.id)].slice(0, 30); localStorage.setItem(KEY, JSON.stringify(workflows)); selected = workflow; drawWorkflows(); workflowSelect.value = '0'; api.toast('Workflow saved', 'ok');
+      workflows = [workflow, ...workflows.filter(item => item.id !== workflow.id)].slice(0, 30); try { localStorage.setItem(KEY, JSON.stringify(workflows)); } catch { api.toast('Workflow could not be saved', 'error'); return; } selected = workflow; drawWorkflows(); workflowSelect.value = '0'; api.toast('Workflow saved', 'ok');
     } });
     const pickFolder = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose source folder', onclick: async () => { const result = await api.pickFolder('Workflow source folder'); if (result) { folder = result; folderLabel.textContent = result; folderLabel.classList.remove('empty'); } } });
     const pickArchiveFolder = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose archive folder', onclick: async () => { const result = await api.pickFolder('Archive output folder'); if (result) { archiveFolder = result; archiveFolderLabel.textContent = result; archiveFolderLabel.classList.remove('empty'); } } });
     const run = h('button', { class: 'btn btn-accent', type: 'button', text: 'Run workflow', onclick: async () => {
-      const workflow = selected || { rename: doRename.checked, template: template.value, organize: doOrganize.checked, archive: doArchive.checked, archiveName: archiveName.value, name: wfName.value || 'Workflow' };
+      // Always run what the form shows, so edits made after loading a saved workflow are honoured.
+      const workflow = { rename: doRename.checked, template: template.value || '{original}', organize: doOrganize.checked, archive: doArchive.checked, archiveName: archiveName.value, name: wfName.value || selected?.name || 'Workflow' };
       if (!folder) { api.toast('Choose a source folder', 'error'); return; }
       if (!workflow.rename && !workflow.organize && !workflow.archive) { api.toast('Select at least one workflow step', 'error'); return; }
       if (workflow.archive && (!archiveFolder || !/^[^\\/:*?"<>|]+\.zip$/i.test(workflow.archiveName))) { api.toast('Choose an archive folder and a valid .zip name', 'error'); return; }
@@ -299,7 +262,11 @@
           let count = 0;
           for (const file of scan.data.files) {
             const rule = rules.find(item => workflowRuleMatches(item, file)); if (!rule) continue;
-            const dest = String(rule.dest).replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
+            const dest = String(rule.dest).trim().replace(/[\\/]+$/, '').replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
+            // Skip files that already sit in (or below) their destination instead of failing the whole run.
+            const currentDir = String(file.relativePath || file.name).split(/[\\/]/).slice(0, -1).join('/').toLowerCase();
+            const destKey = dest.replace(/\\/g, '/').toLowerCase();
+            if (currentDir === destKey || currentDir.startsWith(`${destKey}/`)) continue;
             if (preview) { count++; continue; }
             const moved = await api.invokeTool('organizer', 'move', { folder: current, relativePath: file.relativePath, fileName: file.name, destFolder: dest }); if (!moved.ok) throw new Error(`${file.name}: ${moved.error}`); count++;
           }
@@ -310,7 +277,7 @@
           else { const zipped = await api.invokeTool('archive-tool', 'archive', { operation: 'create', root: current, outputDir: archiveFolder, name: workflow.archiveName }); if (!zipped.ok) throw new Error(zipped.error); log.push(`Created ${zipped.data.output}.`); }
         }
         status.appendChild(statusNote(`${preview ? 'Preview only — no changes were made. ' : ''}${log.join(' ')}`, preview ? 'info' : 'ok'));
-        const history = JSON.parse(localStorage.getItem('toolhub_workflow_history_v1') || '[]'); history.unshift({ name: workflow.name, at: Date.now(), preview, log }); localStorage.setItem('toolhub_workflow_history_v1', JSON.stringify(history.slice(0, 50)));
+        try { let history = JSON.parse(localStorage.getItem('toolhub_workflow_history_v1') || '[]'); if (!Array.isArray(history)) history = []; history.unshift({ name: workflow.name, at: Date.now(), preview, log }); localStorage.setItem('toolhub_workflow_history_v1', JSON.stringify(history.slice(0, 50))); } catch {}
       } catch (err) { status.appendChild(statusNote(err.message, 'error')); }
       finally { run.disabled = false; }
     } });

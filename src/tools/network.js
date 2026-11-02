@@ -17,9 +17,11 @@ function buildTraceArgs(platform, host, maxHops) {
 
 function parsePing(output) {
   const times = [];
-  const re = /[=<]\s*([\d.]+)\s*ms/gi;
-  let m;
-  while ((m = re.exec(output)) !== null) times.push(Number(m[1]));
+  for (const line of output.split(/\r?\n/)) {
+    if (!/\bttl[=:]/i.test(line)) continue;
+    const m = line.match(/[=<]\s*([\d.]+)\s*ms/i);
+    if (m) times.push(Number(m[1]));
+  }
   const lossMatch = output.match(/([\d.]+)%\s*(?:packet\s*)?loss/i) || output.match(/\(\s*([\d.]+)%\s*(?:loss|perdidos)/i);
   const summary = times.length > 0
     ? {

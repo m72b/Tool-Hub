@@ -11,7 +11,7 @@ const f3=path.join(outside,'z.txt');fs.writeFileSync(f3,'z');
 // attributes list
 let l=await A.actions.list({folder:tmp},ctx);
 assert.strictEqual(l.files.length,2,'lists 2');
-assert.ok(l.files.find(f=>f.name==='.hidden.txt').attrs.hidden,'dotfile hidden on unix');
+if(process.platform!=='win32')assert.ok(l.files.find(f=>f.name==='.hidden.txt').attrs.hidden,'dotfile hidden on unix');
 // readonly toggle
 let r=await A.actions.apply({root:tmp,paths:[f1],changes:{readonly:true}},ctx);
 assert.strictEqual(r.updated,1,'set readonly');

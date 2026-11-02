@@ -8,9 +8,23 @@ contextBridge.exposeInMainWorld('hub', {
     close: () => ipcRenderer.send('shell:window', 'close'),
   },
   pickFolder: title => ipcRenderer.invoke('shell:pickFolder', title),
-  pickFiles: () => ipcRenderer.invoke('shell:pickFiles'),
+  pickFiles: options => ipcRenderer.invoke('shell:pickFiles', options),
+  saveFile: options => ipcRenderer.invoke('shell:saveFile', options),
+  addons: {
+    list: () => ipcRenderer.invoke('addons:list'),
+    pick: () => ipcRenderer.invoke('addons:pick'),
+    install: token => ipcRenderer.invoke('addons:install', token),
+    remove: id => ipcRenderer.invoke('addons:remove', id),
+    trustKey: (name, publicKey) => ipcRenderer.invoke('addons:trustKey', { name, publicKey }),
+    untrustKey: id => ipcRenderer.invoke('addons:untrustKey', id),
+  },
   approveDrop: target => ipcRenderer.invoke('shell:approveDrop', target),
   takeOpenFolder: () => ipcRenderer.invoke('shell:takeOpenFolder'),
+  onOpenFolder: callback => {
+    const listener = (_event, folder) => callback(folder);
+    ipcRenderer.on('shell:openFolder', listener);
+    return () => ipcRenderer.removeListener('shell:openFolder', listener);
+  },
   getPathForFile: file => webUtils.getPathForFile(file),
   portableMode: () => ipcRenderer.invoke('app:portableMode'),
   togglePortable: () => ipcRenderer.invoke('app:togglePortable'),

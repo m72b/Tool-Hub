@@ -5,6 +5,7 @@ const safe = require('../core/safe');
 const { walkFilesAsync } = require('../core/walk');
 
 const FLAGS = { readonly: 'R', hidden: 'H', system: 'S', archive: 'A' };
+const WIN_BITS = { readonly: 1, hidden: 2, system: 4, archive: 32 };
 
 function fromMode(filePath, stat) {
   const writable = (stat.mode & 0o200) !== 0;
@@ -96,14 +97,35 @@ async function apply(params, ctx) {
   const valid = files.filter(f => typeof f === 'string');
   let updated = 0;
 
-  if (ctx.platform === 'win32') {
-    const args = active.map(k => `${changes[k] ? '+' : '-'}${FLAGS[k]}`);
-    for (const file of valid) {
-      const res = await safe.run('attrib.exe', [...args, file], { timeout: 10000 });
-      if (res.ok) updated++;
-      else failed.push({ path: file, error: res.stderr.trim() || 'attrib failed' });
+  if (ctx.platform === 'win32' && valid.length > 0) {
+    // attrib.exe refuses to change R/A on hidden or system files unless H/S are also given,
+    // so set the attribute bits directly instead.
+    let set = 0;
+    let unset = 0;
+    for (const k of active) {
+      if (changes[k]) set |= WIN_BITS[k];
+      else unset |= WIN_BITS[k];
     }
-  } else {
+    const listFile = path.join(os.tmpdir(), `mtb-attr-set-${process.pid}-${Date.now()}.txt`);
+    try {
+      fs.writeFileSync(listFile, valid.join('\n'), 'utf8');
+      const res = await safe.powershellJson(
+        '$set=[int]$env:MTB_SET;$unset=[int]$env:MTB_UNSET;$paths=Get-Content -LiteralPath $env:MTB_LIST -Encoding UTF8;' +
+        '$paths | Where-Object { $_ } | ForEach-Object { $p=$_; try { $a=[int][IO.File]::GetAttributes($p); [IO.File]::SetAttributes($p,[IO.FileAttributes](($a -bor $set) -band (-bnot $unset))); [PSCustomObject]@{Path=$p;Ok=$true;Error=""} } catch { [PSCustomObject]@{Path=$p;Ok=$false;Error=$_.Exception.Message} } } | ConvertTo-Json -Compress',
+        { env: { MTB_LIST: listFile, MTB_SET: String(set), MTB_UNSET: String(unset) }, timeout: 60000 }
+      );
+      if (!res.ok) {
+        for (const file of valid) failed.push({ path: file, error: res.error || 'Could not change attributes' });
+      } else {
+        for (const result of res.data || []) {
+          if (result.Ok === true || result.Ok === 'true') updated++;
+          else failed.push({ path: String(result.Path || root), error: String(result.Error || 'Could not change attributes') });
+        }
+      }
+    } finally {
+      try { fs.unlinkSync(listFile); } catch { void 0; }
+    }
+  } else if (ctx.platform !== 'win32') {
     if (changes.readonly === undefined) safe.fail('Only the read-only attribute is supported on this platform');
     for (const file of valid) {
       try {

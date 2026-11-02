@@ -17,7 +17,9 @@ async function scan(params, ctx = {}) {
       try { entries = await fs.promises.readdir(current.dir, { withFileTypes: true }); }
       catch { cleanable.set(current.dir, false); continue; }
       stack.push({ ...current, visited: true, entries });
-      if (recursive) {
+      // Without subfolders, still check the immediate children of the root (it is never listed itself),
+      // but do not descend further; a child that has subfolders is then treated as non-empty.
+      if (recursive || current.depth === 0) {
         for (const entry of entries) {
           if (entry.isDirectory() && !entry.isSymbolicLink()) stack.push({ dir: path.join(current.dir, entry.name), depth: current.depth + 1, visited: false });
         }

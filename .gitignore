@@ -1,7 +1,8 @@
 node_modules/
 dist/
 release/
-*test build/
-m72b's test build/
 *.log
 .DS_Store
+addons/*/vendor/qpdf/
+addons/*/vendor/pdfjs/
+addons/*/vendor/fontkit.umd.min.js

@@ -79,6 +79,8 @@ function createEnv() {
     Image: class { set src(v) { this._src = v; } },
     setTimeout,
     clearTimeout,
+    setInterval,
+    clearInterval,
     console,
   };
   win.window = win;

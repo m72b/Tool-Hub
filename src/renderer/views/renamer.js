@@ -179,7 +179,8 @@
           try {
             let flags = String(state.regexFlags || 'gi').replace(/[^dgimsuvy]/g, '');
             if (!flags.includes('g')) flags += 'g';
-            return base.replace(new RegExp(state.findReplace.find, flags), () => state.findReplace.replace);
+            // String replacement so $1, $& etc. expand, as the hint promises.
+            return base.replace(new RegExp(state.findReplace.find, flags), state.findReplace.replace);
           } catch { return base; }
         }
         return baseAndExt(applyTemplate(state.format, file, index, state.overrides)).base;
@@ -311,7 +312,7 @@
 
         results.appendChild(h('div', { class: 'stat-row' }, [
           stat('Files', fmtNumber(list.length)),
-          stat('Pending changes', fmtNumber(list.filter(f => f.newName !== f.name).length), 'warn'),
+          stat('Pending changes', fmtNumber(list.filter(f => f.newName !== f.name).length), list.some(f => f.newName !== f.name) ? 'warn' : null),
         ]));
         if (state.truncated) results.appendChild(statusNote('This folder contains more than 5,000 files. Preview and rename results are partial.', 'warn'));
 
@@ -344,6 +345,8 @@
             state.findReplace = { find: '', replace: '' };
             ruleFind.value = '';
             ruleReplace.value = '';
+            regexFind.value = '';
+            regexReplace.value = '';
             state.removeText = '';
             removeTextarea.value = '';
             state.removeCaseInsensitive = true;
@@ -491,10 +494,12 @@
           loadFolder(chosen);
         },
       });
-      document.addEventListener('hub-folder-drop', event => {
-        if (!folderLabel.isConnected || !event.detail || !document.getElementById('content').contains(folderLabel)) return;
+      const onFolderDrop = event => {
+        if (!folderLabel.isConnected) { document.removeEventListener('hub-folder-drop', onFolderDrop); return; }
+        if (!event.detail || !document.getElementById('content').contains(folderLabel)) return;
         folderLabel.textContent = event.detail; folderLabel.classList.remove('empty'); loadFolder(event.detail);
-      });
+      };
+      document.addEventListener('hub-folder-drop', onFolderDrop);
       const includeSubfolders = h('label', { class: 'field field-inline' }, [
         h('input', { type: 'checkbox', checked: false, onchange: e => { state.recursive = e.target.checked; if (state.folder) loadFolder(state.folder); } }),
         h('span', { text: 'Include subfolders' }),
@@ -622,7 +627,7 @@
         onchange: e => { state.removeCaseInsensitive = e.target.checked; updatePreview(); },
       });
 
-      const modeButtonsWrap = h('div', { class: 'shape-grid' });
+      const modeButtonsWrap = h('div', { class: 'mode-grid' });
       const modeBody = h('div', { class: 'mode-body' });
       const MODE_LABELS = { template: 'Template', findReplace: 'Find & Replace', regex: 'Regex', game: 'Detect Game Name' };
 
@@ -686,7 +691,11 @@
         h('div', { class: 'controls-actions' }, [applyBtn]),
       ]));
 
-      container.appendChild(h('div', { class: 'panel-grid' }, [
+      const extras = h('details', { class: 'more-options', open: Object.keys(state.overrides).length > 0 || state.presets.length > 0 }, [
+        h('summary', { text: 'Custom tokens, presets & remove text' }),
+      ]);
+      container.appendChild(extras);
+      extras.appendChild(h('div', { class: 'panel-grid' }, [
         h('div', { class: 'group' }, [
           h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Custom tokens' })]),
           h('div', { class: 'group-body' }, [overrideList, h('div', { class: 'field-row' }, [newTokenInput, addToken])]),
@@ -942,7 +951,7 @@
           if (!rule) continue;
           const relativeParts = String(file.relativePath || file.name).split(/[\\/]/);
           const destination = rule.dest.trim().replace(/\{year\}/gi, file.tags?.DateTaken?.slice(0, 4) || new Date(file.mtime).getFullYear()).replace(/\{month\}/gi, file.tags?.DateTaken?.slice(5, 7) || String(new Date(file.mtime).getMonth() + 1).padStart(2, '0'));
-          if (relativeParts.length >= 2 && relativeParts.slice(0, -1).join('/').toLowerCase() === destination.replace(/\\/g, '/').toLowerCase()) continue;
+          if (relativeParts.length >= 2 && relativeParts.slice(0, -1).join('/').toLowerCase() === destination.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()) continue;
           if (dryRun) {
             lines.push({ ok: true, text: `Would move ${file.relativePath || file.name} → ${destination}/` });
             moved++;
@@ -987,10 +996,12 @@
           folderLabel.classList.remove('empty');
         },
       });
-      document.addEventListener('hub-folder-drop', event => {
-        if (!folderLabel.isConnected || !event.detail || !document.getElementById('content').contains(folderLabel)) return;
+      const onFolderDrop = event => {
+        if (!folderLabel.isConnected) { document.removeEventListener('hub-folder-drop', onFolderDrop); return; }
+        if (!event.detail || !document.getElementById('content').contains(folderLabel)) return;
         state.folder = event.detail; folderLabel.textContent = event.detail; folderLabel.classList.remove('empty');
-      });
+      };
+      document.addEventListener('hub-folder-drop', onFolderDrop);
       const includeSubfolders = h('label', { class: 'field field-inline' }, [
         h('input', { type: 'checkbox', checked: false, onchange: e => { state.recursive = e.target.checked; } }),
         h('span', { text: 'Include subfolders' }),

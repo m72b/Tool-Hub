@@ -10,10 +10,18 @@ function hashFile(file, bytes, signal) {
     const hash = crypto.createHash('sha256');
     const opts = bytes ? { start: 0, end: bytes - 1 } : {};
     const stream = fs.createReadStream(file, opts);
+    const onAbort = () => { stream.destroy(); finish(null); };
+    const finish = value => {
+      if (signal) signal.removeEventListener('abort', onAbort);
+      resolve(value);
+    };
     stream.on('data', chunk => hash.update(chunk));
-    stream.on('end', () => resolve(hash.digest('hex')));
-    stream.on('error', () => resolve(null));
-    if (signal) signal.addEventListener('abort', () => stream.destroy(), { once: true });
+    stream.on('end', () => finish(hash.digest('hex')));
+    stream.on('error', () => finish(null));
+    if (signal) {
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+    }
   });
 }
 

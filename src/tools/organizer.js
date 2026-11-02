@@ -9,7 +9,9 @@ async function readFolder(params, ctx) {
 
 async function move(params) {
   const folder = safe.existingDir(params.folder);
-  const { fileName, destFolder } = params;
+  const { fileName } = params;
+  // Accept "Photos/" or " Photos " the same way as "Photos".
+  const destFolder = typeof params.destFolder === 'string' ? params.destFolder.trim().replace(/[\\/]+$/, '') : params.destFolder;
   if (!safe.safeEntryName(fileName)) safe.fail('Invalid file name');
   if (typeof destFolder !== 'string' || destFolder.length > 240 || path.isAbsolute(destFolder) || destFolder.includes('\0') || (destFolder !== '' && destFolder.split(/[\\/]/).some(part => !safe.safeEntryName(part)))) safe.fail('Invalid destination folder path');
   const relativePath = typeof params.relativePath === 'string' ? params.relativePath : fileName;

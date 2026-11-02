@@ -46,7 +46,7 @@ async function fixExtensions(params) {
       } finally { await handle.close(); }
       if (actual !== item.detected) safe.fail('File signature changed since the scan');
       const target = safe.assertInside(root, path.join(path.dirname(source), `${path.basename(oldName, path.extname(oldName))}.${item.detected}`));
-      if (source.toLowerCase() === target.toLowerCase()) {
+      if (source.toLowerCase() === target.toLowerCase() && (source === target || safe.sameFile(source, target))) {
         const temp = `${source}.toolhub-${process.pid}.tmp`;
         await fs.promises.rename(source, temp);
         try { await fs.promises.rename(temp, target); } catch (err) { await fs.promises.rename(temp, source); throw err; }
@@ -137,7 +137,8 @@ async function archive(params, ctx) {
       const res = await safe.powershell("$ErrorActionPreference='Stop';Compress-Archive -Path (Join-Path $env:TOOLHUB_ROOT '*') -DestinationPath $env:TOOLHUB_OUTPUT -Force", { env: { TOOLHUB_ROOT: root, TOOLHUB_OUTPUT: output }, timeout: 300000 });
       if (!res.ok) safe.fail(res.stderr.trim() || 'Archive creation failed');
     } else {
-      const res = await safe.run('zip', ['-q', '-r', output, root], { timeout: 300000 });
+      // Run inside the folder so entries are stored relative to it, matching the Windows archive layout.
+      const res = await safe.run('zip', ['-q', '-r', output, '.'], { timeout: 300000, cwd: root });
       if (!res.ok) safe.fail(res.stderr.trim() || 'Archive creation failed');
     }
     return { output };

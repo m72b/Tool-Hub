@@ -25,30 +25,29 @@ const MODULE_FILES = {
   'tree-export': 'tree-export',
   'port-process': 'port-process',
   'system-editor': 'system-editor',
-  utilities: 'utilities',
   'folder-sync': 'advanced-files',
   'file-type': 'advanced-files',
   'archive-tool': 'advanced-files',
   'secure-delete': 'advanced-files',
   'image-privacy': 'image-privacy',
   'file-locks': 'advanced-files',
-  'pdf-tools': 'pdf-tools',
   'watch-folder': 'watch-folder',
   'scheduled-cleanup': 'scheduled-cleanup',
   'disk-benchmark': 'disk-benchmark',
-  workflows: 'utilities',
 };
 
 function createHost(options) {
   const { store, platform, userData, trash, executable, packaged } = options;
   const loaded = new Map();
-  const ctx = { platform, userData, trash, executable, packaged };
+  // `lib` exposes the app's validated helpers to add-on modules, which cannot import src/ by path.
+  const ctx = { platform, userData, trash, executable, packaged, lib: { safe, walk: require('./walk') } };
 
   function loadTool(id) {
     if (loaded.has(id)) return loaded.get(id);
+    const addonModule = registry.getTool(id)?.modulePath;
     const file = MODULE_FILES[id];
-    if (!file) return null;
-    const mod = require(path.join(__dirname, '..', 'tools', file));
+    if (!file && !addonModule) return null;
+    const mod = require(addonModule || path.join(__dirname, '..', 'tools', file));
     loaded.set(id, mod);
     return mod;
   }
@@ -78,10 +77,15 @@ function createHost(options) {
     return {
       platform,
       setupComplete: state.setupComplete,
+      addons: options.addons ? options.addons.list().map(addon => ({
+        id: addon.id, name: addon.name, version: addon.version, description: addon.description || '',
+        signer: addon.signer, problem: addon.problem, scripts: addon.scripts || [], styles: addon.styles || [],
+        tools: addon.tools.map(tool => tool.id),
+      })) : [],
       categories: registry.categories(),
       tools: registry.listTools(platform).map(t => ({
         ...t,
-        installed: state.installed.includes(t.id),
+        installed: !!t.addon || state.installed.includes(t.id),
       })),
     };
   }

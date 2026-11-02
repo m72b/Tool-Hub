@@ -1,0 +1,34 @@
+{
+  "id": "pdf-tools",
+  "name": "PDF Tools",
+  "version": "1.0.0",
+  "description": "Merge, split, compress, convert, edit, sign, protect, OCR and compare PDFs — all on your computer.",
+  "minAppVersion": "4.0.0",
+  "tools": [
+    {
+      "id": "pdf",
+      "name": "PDF Tools",
+      "category": "PDF",
+      "icon": "PDF",
+      "description": "Organize, optimize, convert, edit and secure PDF files.",
+      "module": "main/index.js"
+    }
+  ],
+  "styles": [
+    "renderer/pdf-hub.css"
+  ],
+  "scripts": [
+    "vendor/pdf-lib.min.js",
+    "vendor/fontkit.umd.min.js",
+    "vendor/pdfjs/pdf.min.js",
+    "vendor/pdfjs/pdf.worker.min.js",
+    "renderer/pdf-common.js",
+    "renderer/tools-organize.js",
+    "renderer/tools-optimize.js",
+    "renderer/tools-convert.js",
+    "renderer/tools-edit.js",
+    "renderer/tools-security.js",
+    "renderer/tools-intelligence.js",
+    "renderer/pdf-hub.js"
+  ]
+}
