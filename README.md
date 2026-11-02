@@ -11,7 +11,7 @@
 |__/ |__/ |__/|__/     |________/|_______/          |__/ \______/  \______/ |__/        |__/  |__/ \______/ |_______/
 </pre>
 
-# m72b Tool Hub
+# Tool Hub
 
 **A modular desktop toolbox for files, cleanup, system maintenance, media and PDFs.**
 Pick only the tools you need. Everything runs locally on your computer.
