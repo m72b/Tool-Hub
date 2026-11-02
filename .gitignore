@@ -3,3 +3,6 @@ dist/
 release/
 *.log
 .DS_Store
+addons/*/vendor/qpdf/
+addons/*/vendor/pdfjs/
+addons/*/vendor/fontkit.umd.min.js

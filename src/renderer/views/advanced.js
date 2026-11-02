@@ -183,34 +183,6 @@
     api.invoke('targets', {}).then(result => { if (result.ok) drawTargets(result.data); else results.appendChild(statusNote(result.error, 'error')); }); refreshStatus(); return root;
   } });
 
-  Hub.registerView('pdf-tools', { render(api) {
-    const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
-    let paths = [], outputDir = '', path = '';
-    const nameMerge = h('input', { class: 'input', type: 'text', value: 'merged.pdf' });
-    const nameSplit = h('input', { class: 'input', type: 'text', value: 'pages.pdf' });
-    const start = h('input', { class: 'input', type: 'number', min: '1', value: '1', placeholder: '1' });
-    const end = h('input', { class: 'input', type: 'number', min: '1', placeholder: 'Last page' });
-    const labelled = (label, input) => h('label', { class: 'field field-compact' }, [h('span', { class: 'field-label', text: label }), input]);
-    const chooseMany = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose PDFs…', onclick: async () => { const chosen = await api.pickFiles(); paths = (chosen || []).filter(file => file.path.toLowerCase().endsWith('.pdf')).map(file => file.path); results.textContent = `${paths.length} PDF(s) selected`; } });
-    const chooseOne = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose PDF…', onclick: async () => { const chosen = await api.pickFiles(); path = chosen?.find(file => file.path.toLowerCase().endsWith('.pdf'))?.path || ''; results.textContent = path || 'No PDF selected'; } });
-    const chooseOut = () => h('button', { class: 'btn btn-sm', type: 'button', text: 'Save in folder…', onclick: async () => { outputDir = await api.pickFolder('Choose output folder') || outputDir; if (outputDir) results.textContent = `Output folder: ${outputDir}`; } });
-    const doMerge = h('button', { class: 'btn btn-accent', type: 'button', text: 'Merge PDFs', onclick: async () => {
-      if (paths.length < 2 || !outputDir) { api.toast('Choose at least two PDFs and an output folder', 'error'); return; }
-      if (!window.confirm(`Merge ${paths.length} PDFs into ${nameMerge.value}?`)) return;
-      doMerge.disabled = true; const result = await api.invoke('merge', { paths, outputDir, name: nameMerge.value }); doMerge.disabled = false;
-      if (!result.ok) api.toast(result.error, 'error'); else api.toast(`Merged ${result.data.pages} pages to ${result.data.output}`, 'ok');
-    } });
-    const doSplit = h('button', { class: 'btn btn-accent', type: 'button', text: 'Extract page range', onclick: async () => {
-      if (!path || !outputDir) { api.toast('Choose a PDF and output folder', 'error'); return; }
-      doSplit.disabled = true; const result = await api.invoke('split', { path, outputDir, name: nameSplit.value, start: start.value, end: end.value }); doSplit.disabled = false;
-      if (!result.ok) api.toast(result.error, 'error'); else api.toast(`Saved ${result.data.pages} page(s) to ${result.data.output}`, 'ok');
-    } });
-    root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'PDF Merge & Split' }), h('p', { class: 'tool-desc', text: 'Merge selected PDFs or extract a page range to a new PDF. Files are processed locally.' })]));
-    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Merge PDFs' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row action-row-end' }, [chooseMany, chooseOut(), labelled('Output name', nameMerge), doMerge])])])) ;
-    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Split PDF by page range' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row action-row-end' }, [chooseOne, chooseOut(), labelled('From page', start), labelled('To page', end), labelled('Output name', nameSplit), doSplit])])])) ;
-    root.appendChild(results); return root;
-  } });
-
   Hub.registerView('image-privacy', { render(api) {
     const root = h('div', { class: 'tool' }), results = h('div', { class: 'results' });
     let folder = '', images = [];

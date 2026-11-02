@@ -2,7 +2,7 @@
 <html lang="en" data-theme="midnight" data-shape="soft">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' toolhub-addon:; style-src 'self' 'unsafe-inline' toolhub-addon:; font-src 'self' data: toolhub-addon:; img-src 'self' data: blob:; connect-src toolhub-addon:">
 <title>Tool Hub</title>
 <link rel="stylesheet" href="styles.css">
 <script src="theme-boot.js"></script>
@@ -63,6 +63,7 @@
 <script src="views/media.js"></script>
 <script src="views/extra.js"></script>
 <script src="views/advanced.js"></script>
+<script src="addon-manager.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

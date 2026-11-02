@@ -1,13 +1,25 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const { pathToFileURL } = require('url');
 const { createStore } = require('./src/core/store');
 const { createHost } = require('./src/core/host');
+const { createAddonManager } = require('./src/core/addons');
+const registry = require('./src/core/registry');
 
 const RENDERER = path.join(__dirname, 'src', 'renderer', 'index.html');
+const ADDON_SCHEME = 'toolhub-addon';
 const approvedDirectories = new Set();
 const approvedFiles = new Set();
+// Files the user named in a Save dialog; they may not exist yet.
+const approvedSaveTargets = new Set();
+const pendingAddonInstalls = new Map();
 const activeJobs = new Map();
+let addonManager = null;
+
+// Add-on UI files are served from <userData>/addons through this scheme; it must be registered before "ready".
+protocol.registerSchemesAsPrivileged([{ scheme: ADDON_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 const headlessLaunch = process.argv.includes('--cli') || process.argv.includes('--scheduled-cleanup');
 const singleInstanceLock = headlessLaunch || app.requestSingleInstanceLock();
 
@@ -71,6 +83,8 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
+      // Long jobs (PDF rendering, scans) must keep running at full speed when the window is in the background.
+      backgroundThrottling: false,
     },
     show: false, // show after ready-to-show for a clean launch
   });
@@ -116,16 +130,27 @@ function isWithin(ancestor, candidate) {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+function saveKey(target) {
+  const resolved = path.resolve(target);
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 function isApprovedPath(target) {
   if (typeof target !== 'string' || !path.isAbsolute(target)) return false;
+  if (approvedSaveTargets.has(saveKey(target))) return true;
   let resolved;
-  try { resolved = fs.realpathSync.native(target); } catch { return false; }
+  try { resolved = fs.realpathSync.native(target); }
+  catch {
+    // A file that does not exist yet (an output) is approved when its folder is inside an approved folder.
+    try { resolved = path.join(fs.realpathSync.native(path.dirname(target)), path.basename(target)); } catch { return false; }
+    return Array.from(approvedDirectories).some(root => isWithin(root, resolved));
+  }
   if (approvedFiles.has(resolved)) return true;
   return Array.from(approvedDirectories).some(root => isWithin(root, resolved));
 }
 
 function validateRendererPaths(params) {
-  const pathFields = ['folder', 'root', 'left', 'right', 'roots', 'path', 'paths', 'dir', 'source', 'destination', 'outputDir', 'archive'];
+  const pathFields = ['folder', 'root', 'left', 'right', 'roots', 'path', 'paths', 'dir', 'source', 'destination', 'outputDir', 'archive', 'output', 'compare'];
   for (const field of pathFields) {
     const value = params[field];
     if (typeof value === 'string' && value.length > 0) {
@@ -143,8 +168,17 @@ async function trashItem(target) {
 }
 
 if (singleInstanceLock) app.whenReady().then(async () => {
+  addonManager = createAddonManager({ userData: app.getPath('userData'), appVersion: app.getVersion() });
+  try { registry.setAddonTools(addonManager.tools()); } catch (err) { console.error(`Could not load add-ons: ${err.message}`); }
+  protocol.handle(ADDON_SCHEME, request => {
+    const url = new URL(request.url);
+    const file = addonManager.resolveFile(url.hostname, decodeURIComponent(url.pathname.replace(/^\/+/, '')));
+    if (!file) return new Response('Not found', { status: 404 });
+    return net.fetch(pathToFileURL(file).toString());
+  });
   store = createStore(app.getPath('userData'), process.platform);
   host = createHost({
+    addons: addonManager,
     store,
     platform: process.platform,
     userData: app.getPath('userData'),
@@ -203,10 +237,21 @@ ipcMain.handle('shell:pickFolder', async (_event, title) => {
   return approveFolder(result.filePaths[0]);
 });
 
-ipcMain.handle('shell:pickFiles', async () => {
+function dialogFilters(raw) {
+  if (!Array.isArray(raw)) return undefined;
+  const filters = raw.slice(0, 8).map(item => ({
+    name: String(item?.name || 'Files').slice(0, 60),
+    extensions: (Array.isArray(item?.extensions) ? item.extensions : []).map(ext => String(ext).replace(/[^a-z0-9*]/gi, '').slice(0, 10)).filter(Boolean).slice(0, 20),
+  })).filter(item => item.extensions.length);
+  return filters.length ? filters : undefined;
+}
+
+ipcMain.handle('shell:pickFiles', async (_event, options) => {
+  const opts = options && typeof options === 'object' ? options : {};
   const result = await dialog.showOpenDialog(requireWindow(), {
-    properties: ['openFile', 'multiSelections'],
-    title: 'Choose files',
+    properties: opts.multiple === false ? ['openFile'] : ['openFile', 'multiSelections'],
+    title: typeof opts.title === 'string' && opts.title ? opts.title.slice(0, 120) : 'Choose files',
+    filters: dialogFilters(opts.filters),
   });
   if (result.canceled) return [];
   return result.filePaths.map(filePath => {
@@ -221,6 +266,65 @@ ipcMain.handle('shell:pickFiles', async () => {
       dir: path.dirname(filePath),
     };
   });
+});
+
+ipcMain.handle('shell:saveFile', async (_event, options) => {
+  const opts = options && typeof options === 'object' ? options : {};
+  const defaultName = typeof opts.defaultName === 'string' ? opts.defaultName.replace(/[\\/:*?"<>|]/g, '_').slice(0, 200) : undefined;
+  const result = await dialog.showSaveDialog(requireWindow(), {
+    title: typeof opts.title === 'string' && opts.title ? opts.title.slice(0, 120) : 'Save file',
+    defaultPath: defaultName ? path.join(app.getPath('documents'), defaultName) : undefined,
+    filters: dialogFilters(opts.filters),
+  });
+  if (result.canceled || !result.filePath) return null;
+  approvedSaveTargets.add(saveKey(result.filePath));
+  return path.resolve(result.filePath);
+});
+
+ipcMain.handle('addons:list', () => ({ addons: addonManager.list(), keys: addonManager.trustedKeys() }));
+
+ipcMain.handle('addons:pick', async () => {
+  const result = await dialog.showOpenDialog(requireWindow(), {
+    properties: ['openFile'],
+    title: 'Choose a Tool Hub add-on',
+    filters: [{ name: 'Tool Hub add-on', extensions: ['thaddon'] }],
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  try {
+    const buffer = fs.readFileSync(result.filePaths[0]);
+    const info = addonManager.inspect(buffer);
+    const token = crypto.randomBytes(16).toString('hex');
+    pendingAddonInstalls.clear();
+    pendingAddonInstalls.set(token, buffer);
+    return { ok: true, token, info, file: path.basename(result.filePaths[0]) };
+  } catch (err) { return { ok: false, error: err.message }; }
+});
+
+function relaunchSoon() {
+  setTimeout(() => { app.relaunch(); app.exit(0); }, 400);
+}
+
+ipcMain.handle('addons:install', (_event, token) => {
+  const buffer = pendingAddonInstalls.get(token);
+  pendingAddonInstalls.delete(token);
+  if (!buffer) return { ok: false, error: 'Choose the add-on file again' };
+  try { const addon = addonManager.install(buffer); relaunchSoon(); return { ok: true, addon }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
+ipcMain.handle('addons:remove', (_event, id) => {
+  try { addonManager.remove(String(id || '')); relaunchSoon(); return { ok: true }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
+ipcMain.handle('addons:trustKey', (_event, payload) => {
+  try { return { ok: true, keys: addonManager.trustKey(payload?.name, payload?.publicKey) }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+
+ipcMain.handle('addons:untrustKey', (_event, id) => {
+  try { return { ok: true, keys: addonManager.untrustKey(String(id || '')) }; }
+  catch (err) { return { ok: false, error: err.message }; }
 });
 
 ipcMain.handle('shell:approveDrop', async (_event, target) => {

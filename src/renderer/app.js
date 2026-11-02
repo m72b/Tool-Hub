@@ -39,7 +39,8 @@
       onProgress: (jobId, callback) => window.hub.onProgress(jobId, callback),
       toast,
       pickFolder: title => window.hub.pickFolder(title),
-      pickFiles: () => window.hub.pickFiles(),
+      pickFiles: options => window.hub.pickFiles(options),
+      saveFile: options => window.hub.saveFile(options),
       reveal: target => window.hub.reveal(target),
       platform: window.hub.platform,
     };
@@ -190,7 +191,7 @@
   window.hub.onOpenFolder(openDroppedFolder);
 
   function toolCard(tool, selected, onToggle) {
-    const disabled = !tool.supported || tool.core;
+    const disabled = !tool.supported || tool.core || !!tool.addon;
     const box = h('input', {
       type: 'checkbox',
       checked: selected,
@@ -209,6 +210,7 @@
       h('div', { class: 'tool-card-tags' }, [
         h('span', { class: 'tag', text: tool.category }),
         tool.core ? h('span', { class: 'tag tag-core', text: 'Always installed' }) : null,
+        tool.addon ? h('span', { class: 'tag tag-core', text: `Add-on: ${tool.addonName || tool.addon}` }) : null,
         !tool.supported ? h('span', { class: 'tag tag-warn', text: 'Windows only' }) : null,
       ]),
     ]);
@@ -263,6 +265,7 @@
         }),
       ]);
       container.appendChild(actions);
+      if (options.afterSave === 'library' && window.AddonManagerUI) container.appendChild(window.AddonManagerUI.render(toast));
 
       for (const category of catalog.categories) {
         const tools = catalog.tools.filter(t => t.category === category);
@@ -424,10 +427,28 @@
     document.body.appendChild(overlay); draw(); input.focus();
   }
 
+  // Add-on interfaces are plain scripts/styles served from toolhub-addon://<id>/; load them in order before any tool opens.
+  async function loadAddonAssets(addons) {
+    for (const addon of addons || []) {
+      if (addon.problem) continue;
+      for (const href of addon.styles) document.head.appendChild(h('link', { rel: 'stylesheet', href: `toolhub-addon://${addon.id}/${href}` }));
+      for (const src of addon.scripts) {
+        await new Promise(resolve => {
+          const script = document.createElement('script');
+          script.src = `toolhub-addon://${addon.id}/${src}`;
+          script.onload = resolve;
+          script.onerror = () => { console.error(`Add-on ${addon.id}: could not load ${src}`); resolve(); };
+          document.head.appendChild(script);
+        });
+      }
+    }
+  }
+
   async function start() {
     setupChrome();
     applyAppearance();
     catalog = await window.hub.tools.catalog();
+    await loadAddonAssets(catalog.addons);
     if (!catalog.setupComplete) {
       openSetup();
       return;

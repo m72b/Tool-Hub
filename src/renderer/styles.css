@@ -386,6 +386,11 @@ textarea.input{resize:vertical;min-height:52px;line-height:1.6;}
 .more-options[open]>summary::before{transform:rotate(90deg);}
 .more-options>summary:hover{color:var(--text);}
 .more-options[open]>summary{margin-bottom:var(--s2);}
+.more-options-card>summary{cursor:pointer;list-style:none;}
+.more-options-card>summary::-webkit-details-marker{display:none;}
+.more-options-card:not([open])>summary{border-bottom:none;}
+.key-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--s3);align-items:center;padding:4px 0;}
+.key-name{font-size:12px;font-weight:500;}
 .chips{display:flex;flex-wrap:wrap;gap:4px;}
 .chip{
   background:var(--surface-3);border:1px solid var(--border);border-radius:var(--r-sm);

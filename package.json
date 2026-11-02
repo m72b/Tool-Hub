@@ -1,17 +1,21 @@
 {
   "name": "tool-hub",
-  "version": "3.1.0",
+  "version": "4.0.0",
   "author": "m72b",
   "description": "m72b Tool Hub - modular file, cleanup and system utilities",
   "main": "main.js",
-  "bin": { "toolhub": "./cli.js" },
+  "bin": {
+    "toolhub": "./cli.js"
+  },
   "scripts": {
     "start": "electron .",
     "toolhub": "node cli.js",
     "test": "node test/all.js",
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
-    "build-linux": "electron-builder --linux"
+    "build-linux": "electron-builder --linux",
+    "addon:keygen": "node scripts/addon-keygen.js",
+    "addon:build": "node scripts/build-addon.js"
   },
   "build": {
     "appId": "com.m72b.toolhub",
@@ -46,8 +50,10 @@
     ]
   },
   "devDependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "electron": "^31.0.0",
-    "electron-builder": "^24.0.0"
+    "electron-builder": "^24.0.0",
+    "pdfjs-dist": "^3.11.174"
   },
   "dependencies": {
     "music-metadata": "^11.16.1"
