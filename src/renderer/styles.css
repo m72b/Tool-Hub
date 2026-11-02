@@ -160,7 +160,7 @@ html[data-platform="darwin"] header{padding-left:86px;}
 
 .content{overflow-y:auto;min-height:0;padding:var(--s5);}
 .content.drop-active{outline:2px dashed var(--accent);outline-offset:-8px;background:var(--accent-soft);}
-.palette-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;}
+.palette-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;}
 .command-palette{width:min(620px,calc(100vw - 32px));max-height:70vh;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r-lg);box-shadow:var(--shadow-2);overflow:hidden;display:flex;flex-direction:column;}
 .command-input{border:0;border-bottom:1px solid var(--border);border-radius:0;padding:16px;font-size:15px;}
 .command-list{overflow:auto;padding:6px;}
@@ -408,7 +408,7 @@ textarea.input{resize:vertical;min-height:52px;line-height:1.6;}
 
 .modal-bg{
   position:fixed;inset:0;z-index:200;display:none;
-  background:rgba(0,0,0,.6);backdrop-filter:blur(3px);
+  background:rgba(0,0,0,.45);backdrop-filter:blur(6px);
   align-items:center;justify-content:center;padding:var(--s5);
 }
 .modal-bg.open{display:flex;}
