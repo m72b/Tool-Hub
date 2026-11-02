@@ -348,7 +348,7 @@
             h('option', { value: 'off', text: 'Clear', selected: changes[key] === false }),
           ]);
           return h('div', { class: 'field' }, [
-            h('label', { class: 'field-label', text: key }),
+            h('label', { class: 'field-label', text: { readonly: 'Read-only', hidden: 'Hidden', system: 'System', archive: 'Archive' }[key] }),
             sel,
           ]);
         }));

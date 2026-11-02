@@ -186,7 +186,7 @@
   Hub.registerView('utilities', {
     render(api) {
       const root = h('div', { class: 'tool' });
-      const tabs = h('div', { class: 'shape-grid' });
+      const tabs = h('div', { class: 'mode-grid' });
       const body = h('div', { class: 'group-body' });
       let active = 'JSON Formatter';
       const tools = ['JSON Formatter', 'Base64', 'UUID Generator', 'Text Diff', 'Regex Tester', 'Password Generator'];

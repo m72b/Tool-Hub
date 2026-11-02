@@ -188,8 +188,9 @@
     let paths = [], outputDir = '', path = '';
     const nameMerge = h('input', { class: 'input', type: 'text', value: 'merged.pdf' });
     const nameSplit = h('input', { class: 'input', type: 'text', value: 'pages.pdf' });
-    const start = h('input', { class: 'input', type: 'number', min: '1', value: '1', placeholder: 'First page' });
-    const end = h('input', { class: 'input', type: 'number', min: '1', value: '1', placeholder: 'Last page' });
+    const start = h('input', { class: 'input', type: 'number', min: '1', value: '1', placeholder: '1' });
+    const end = h('input', { class: 'input', type: 'number', min: '1', placeholder: 'Last page' });
+    const labelled = (label, input) => h('label', { class: 'field field-compact' }, [h('span', { class: 'field-label', text: label }), input]);
     const chooseMany = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose PDFs…', onclick: async () => { const chosen = await api.pickFiles(); paths = (chosen || []).filter(file => file.path.toLowerCase().endsWith('.pdf')).map(file => file.path); results.textContent = `${paths.length} PDF(s) selected`; } });
     const chooseOne = h('button', { class: 'btn btn-sm', type: 'button', text: 'Choose PDF…', onclick: async () => { const chosen = await api.pickFiles(); path = chosen?.find(file => file.path.toLowerCase().endsWith('.pdf'))?.path || ''; results.textContent = path || 'No PDF selected'; } });
     const chooseOut = () => h('button', { class: 'btn btn-sm', type: 'button', text: 'Save in folder…', onclick: async () => { outputDir = await api.pickFolder('Choose output folder') || outputDir; if (outputDir) results.textContent = `Output folder: ${outputDir}`; } });
@@ -205,8 +206,8 @@
       if (!result.ok) api.toast(result.error, 'error'); else api.toast(`Saved ${result.data.pages} page(s) to ${result.data.output}`, 'ok');
     } });
     root.appendChild(h('div', { class: 'tool-head' }, [h('h1', { class: 'tool-title', text: 'PDF Merge & Split' }), h('p', { class: 'tool-desc', text: 'Merge selected PDFs or extract a page range to a new PDF. Files are processed locally.' })]));
-    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Merge PDFs' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row' }, [chooseMany, chooseOut(), nameMerge, doMerge])])])) ;
-    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Split PDF by page range' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row' }, [chooseOne, chooseOut(), start, end, nameSplit, doSplit])])])) ;
+    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Merge PDFs' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row action-row-end' }, [chooseMany, chooseOut(), labelled('Output name', nameMerge), doMerge])])])) ;
+    root.appendChild(h('div', { class: 'group' }, [h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Split PDF by page range' })]), h('div', { class: 'group-body' }, [h('div', { class: 'action-row action-row-end' }, [chooseOne, chooseOut(), labelled('From page', start), labelled('To page', end), labelled('Output name', nameSplit), doSplit])])])) ;
     root.appendChild(results); return root;
   } });
 

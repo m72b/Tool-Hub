@@ -247,7 +247,7 @@
   Hub.registerView('disk-analyzer', {
     render(api) {
       const container = h('div', { class: 'tool' });
-      const state = { root: '' };
+      const state = { root: '', view: 'list' };
 
       const head = h('div', { class: 'tool-head' }, [
         h('h1', { class: 'tool-title', text: 'Disk Space Analyzer' }),
@@ -329,10 +329,19 @@
           if (tile?.isDir) load(tile.path);
         });
         const views = h('div', { class: 'disk-views' });
-        const treemapButton = h('button', { class: 'btn btn-sm', type: 'button', text: 'Treemap', onclick: () => { clear(views); views.appendChild(canvas); } });
-        const listButton = h('button', { class: 'btn btn-sm', type: 'button', text: 'List', onclick: () => { clear(views); views.appendChild(listView); } });
+        const treemapButton = h('button', { class: 'btn btn-sm', type: 'button', text: 'Treemap', 'aria-pressed': 'false', onclick: () => showView('treemap') });
+        const listButton = h('button', { class: 'btn btn-sm', type: 'button', text: 'List', 'aria-pressed': 'false', onclick: () => showView('list') });
+        const showView = name => {
+          state.view = name;
+          clear(views);
+          views.appendChild(name === 'treemap' ? canvas : listView);
+          treemapButton.classList.toggle('is-active', name === 'treemap');
+          listButton.classList.toggle('is-active', name === 'list');
+          treemapButton.setAttribute('aria-pressed', String(name === 'treemap'));
+          listButton.setAttribute('aria-pressed', String(name === 'list'));
+        };
         results.appendChild(h('div', { class: 'action-row' }, [treemapButton, listButton]));
-        views.appendChild(listView);
+        showView(state.view);
         results.appendChild(views);
       };
 

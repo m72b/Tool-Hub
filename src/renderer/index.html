@@ -9,15 +9,6 @@
 </head>
 <body>
 
-<div class="titlebar" id="titlebar">
-  <span class="titlebar-title">Tool Hub</span>
-  <div class="titlebar-btns">
-    <button class="tb-btn" id="tbMin" type="button">&#8211;</button>
-    <button class="tb-btn" id="tbMax" type="button">&#9723;</button>
-    <button class="tb-btn close" id="tbClose" type="button">&#10005;</button>
-  </div>
-</div>
-
 <header>
   <div class="brand">Tool Hub</div>
   <div class="header-spacer"></div>
@@ -25,6 +16,11 @@
   <button class="nav-btn settings-btn" id="settingsBtn" type="button" title="Appearance" aria-haspopup="true">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l8 4.6v10.8L12 22l-8-4.6V6.6L12 2z"/><circle cx="12" cy="12" r="3.2"/></svg>
   </button>
+  <div class="titlebar-btns" id="titlebar">
+    <button class="tb-btn" id="tbMin" type="button" title="Minimize" aria-label="Minimize">&#8211;</button>
+    <button class="tb-btn" id="tbMax" type="button" title="Maximize" aria-label="Maximize">&#9723;</button>
+    <button class="tb-btn close" id="tbClose" type="button" title="Close" aria-label="Close">&#10005;</button>
+  </div>
   <div class="header-stripe"></div>
 </header>
 

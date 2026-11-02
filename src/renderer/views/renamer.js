@@ -312,7 +312,7 @@
 
         results.appendChild(h('div', { class: 'stat-row' }, [
           stat('Files', fmtNumber(list.length)),
-          stat('Pending changes', fmtNumber(list.filter(f => f.newName !== f.name).length), 'warn'),
+          stat('Pending changes', fmtNumber(list.filter(f => f.newName !== f.name).length), list.some(f => f.newName !== f.name) ? 'warn' : null),
         ]));
         if (state.truncated) results.appendChild(statusNote('This folder contains more than 5,000 files. Preview and rename results are partial.', 'warn'));
 
@@ -627,7 +627,7 @@
         onchange: e => { state.removeCaseInsensitive = e.target.checked; updatePreview(); },
       });
 
-      const modeButtonsWrap = h('div', { class: 'shape-grid' });
+      const modeButtonsWrap = h('div', { class: 'mode-grid' });
       const modeBody = h('div', { class: 'mode-body' });
       const MODE_LABELS = { template: 'Template', findReplace: 'Find & Replace', regex: 'Regex', game: 'Detect Game Name' };
 
@@ -691,7 +691,11 @@
         h('div', { class: 'controls-actions' }, [applyBtn]),
       ]));
 
-      container.appendChild(h('div', { class: 'panel-grid' }, [
+      const extras = h('details', { class: 'more-options', open: Object.keys(state.overrides).length > 0 || state.presets.length > 0 }, [
+        h('summary', { text: 'Custom tokens, presets & remove text' }),
+      ]);
+      container.appendChild(extras);
+      extras.appendChild(h('div', { class: 'panel-grid' }, [
         h('div', { class: 'group' }, [
           h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Custom tokens' })]),
           h('div', { class: 'group-body' }, [overrideList, h('div', { class: 'field-row' }, [newTokenInput, addToken])]),

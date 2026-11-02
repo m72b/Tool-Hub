@@ -75,13 +75,16 @@
 
   function openActivityLog() {
     const overlay = h('div', { class: 'palette-overlay' }), panel = h('div', { class: 'command-palette activity-panel', role: 'dialog', 'aria-modal': 'true' });
-    const title = h('div', { class: 'group-head' }, [h('span', { class: 'group-title', text: 'Activity Log' }), h('span', { class: 'muted', text: 'Undo is available for recorded renames and Organizer moves.' }), h('button', { class: 'mini-btn', text: 'Close', onclick: () => overlay.remove() })]);
+    const title = h('div', { class: 'group-head' }, [h('div', { class: 'activity-head' }, [h('span', { class: 'group-title', text: 'Activity Log' }), h('span', { class: 'group-sub', text: 'Undo is available for recorded renames and Organizer moves.' })]), h('button', { class: 'mini-btn', type: 'button', text: 'Close', onclick: () => overlay.remove() })]);
     const list = h('div', { class: 'command-list' });
     const events = readList(ACTIVITY_KEY);
     if (!events.length) list.appendChild(h('div', { class: 'command-empty', text: 'No file changes recorded yet.' }));
     for (const item of events) {
       const tool = catalog?.tools.find(entry => entry.id === item.toolId);
-      const card = h('div', { class: 'activity-entry' }, [h('span', { class: 'activity-date', text: new Date(item.at).toLocaleString() }), h('strong', { text: `${tool?.name || item.toolId} · ${item.action}` }), h('span', { class: 'muted', text: item.summary || '' })]);
+      const card = h('div', { class: 'activity-entry' }, [
+        h('span', { class: 'activity-date', text: new Date(item.at).toLocaleString() }),
+        h('div', { class: 'activity-main' }, [h('strong', { class: 'activity-title', text: `${tool?.name || item.toolId} · ${item.action}` }), h('span', { class: 'activity-summary', text: item.summary || '', title: item.summary || '' })]),
+      ]);
       if (item.undo) card.appendChild(h('button', { class: 'btn btn-sm', type: 'button', text: 'Undo', onclick: async e => {
         const button = e.currentTarget;
         button.disabled = true;
@@ -96,7 +99,10 @@
       } }));
       list.appendChild(card);
     }
-    panel.appendChild(title); panel.appendChild(list); overlay.appendChild(panel); overlay.addEventListener('mousedown', event => { if (event.target === overlay) overlay.remove(); }); document.body.appendChild(overlay);
+    panel.appendChild(title); panel.appendChild(list); overlay.appendChild(panel); overlay.addEventListener('mousedown', event => { if (event.target === overlay) overlay.remove(); });
+    const onKey = event => { if (event.key === 'Escape') overlay.remove(); if (!overlay.isConnected) document.removeEventListener('keydown', onKey); };
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay); panel.tabIndex = -1; panel.focus();
   }
 
   function installedTools() {
@@ -107,7 +113,8 @@
     clear(sidebarEl);
     const all = installedTools();
     const favorites = readList(FAVORITES_KEY).filter(id => all.some(tool => tool.id === id));
-    const recent = readList(RECENT_KEY).filter(id => all.some(tool => tool.id === id)).slice(0, 5);
+    // Recent skips the open tool and favourites so the same entry is not listed twice at the top.
+    const recent = readList(RECENT_KEY).filter(id => id !== activeId && !favorites.includes(id) && all.some(tool => tool.id === id)).slice(0, 4);
     const addQuickGroup = (label, ids) => {
       const tools = ids.map(id => all.find(tool => tool.id === id)).filter(Boolean);
       if (!tools.length) return;
@@ -141,7 +148,7 @@
   }
 
   function addNavItem(tool, favorites = readList(FAVORITES_KEY)) {
-    sidebarEl.appendChild(h('div', { class: 'nav-row' }, [
+    sidebarEl.appendChild(h('div', { class: `nav-row${favorites.includes(tool.id) ? ' is-fav' : ''}` }, [
       h('button', { class: `nav-item${tool.id === activeId ? ' active' : ''}`, type: 'button', onclick: () => openTool(tool.id) }, [h('span', { class: 'nav-icon', text: tool.icon }), h('span', { class: 'nav-text', text: tool.name })]),
       h('button', { class: `nav-favorite${favorites.includes(tool.id) ? ' active' : ''}`, type: 'button', title: favorites.includes(tool.id) ? 'Remove favorite' : 'Add favorite', text: favorites.includes(tool.id) ? '★' : '☆', onclick: e => { e.stopPropagation(); const next = readList(FAVORITES_KEY); const index = next.indexOf(tool.id); if (index >= 0) next.splice(index, 1); else next.unshift(tool.id); writeList(FAVORITES_KEY, next); renderSidebar(); } }),
     ]));
