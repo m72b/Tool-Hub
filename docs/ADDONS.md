@@ -1,6 +1,6 @@
 # Tool Hub add-ons
 
-Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media, PDF, Clipboard, Capture, Fonts, Event Log and Devices). Users download only the sections they want, from the Tool Library, and can remove them again.
+Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media, PDF, Clipboard, Capture, Fonts, Event Log and Devices). Users download only the sections they want, from the Tool Library, and can remove them again. [See what each section contains](SECTIONS.md).
 
 - [For users: installing an add-on](#installing-an-add-on)
 - [Why add-ons are signed](#why-add-ons-are-signed)
