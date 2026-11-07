@@ -49,10 +49,10 @@ Pick only the tools you need. Everything runs locally on your computer.
 
 ## Features
 
-- **Download only what you need.** Every section is a small add-on you can download, update or remove in one click, and you can hide single tools too.
+- **Download only what you need.** Every section is a small add-on you can add or remove on its own, and you can hide single tools too.
 - **Private by design.** Files, screenshots and clipboard history stay on your computer and are never uploaded.
 - **Safe changes.** Deletions go to the Recycle Bin, renames and moves can be undone from the Activity Log, and file tools only write inside the folder you picked.
-- **Signed and safe.** Every section is a [signed add-on](#add-ons), checked before it is installed. You can also stay fully offline.
+- **Signed and safe.** Every section is a [signed add-on](#add-ons), checked before it is installed. Tool Hub works fully offline.
 - **Yours to style.** Six themes, three corner styles, favourites, a command palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>), and drag-and-drop folders.
 
 ### Sections
@@ -65,22 +65,21 @@ Tool Hub comes with the Starter Tools. Everything else is a section you add from
 
 1. Download the latest installer from the [**Releases**](https://github.com/m72b/Tool-Hub/releases) page (`tool-hub-Setup-<version>.exe` on Windows).
 2. Run it, and choose whether to install for your account only or for everyone on the PC.
-3. On first launch, choose the sections you want. You can change this any time under **Settings → Open Tool Library**.
+3. Download `tool-hub-addons-<version>.zip` from the same page and unzip it. It holds every section as a `.thaddon` file.
+4. In Tool Hub, open **Settings → Open Tool Library**, click **Add add-on…** and choose the sections you want.
 
 Tool Hub also has a **portable mode** that keeps its settings next to the app. Turn it on from the Settings panel.
 
-**Upgrading from version 4?** The tools that used to be built in are now sections. Add the ones you use from the Tool Library, and your settings carry over.
+**Upgrading from version 4?** The tools that used to be built in are now sections. Add the ones you use from the add-ons zip, and your settings carry over.
 
 ## Add-ons
 
 Every section is a signed `.thaddon` add-on. Open **Settings → Open Tool Library** to manage them:
 
-- **Download** or **Update** a section in one click. Update all appears when new versions are available.
 - **Remove** a section to delete its tools from your computer, along with any history it kept. Tool Hub restarts without them.
-- **Add add-on…** installs a `.thaddon` file you downloaded from [Releases](https://github.com/m72b/Tool-Hub/releases), which works with no internet connection on the PC.
-- **Never connect to the internet** turns off all online checks.
+- **Add add-on…** installs a `.thaddon` file from the add-ons zip on the [Releases](https://github.com/m72b/Tool-Hub/releases) page. Adding a newer file updates that section.
 
-Tool Hub only goes online when the Tool Library loads the list of sections. That list is signed with the release key, every download must match its signed SHA-256, and each add-on's Ed25519 signature is verified before it is installed. Add-ons from other authors must be [checked and authorized by an admin](docs/ADDONS.md#third-party-add-ons) before they are published, and show **"Authorized by …"** when installed.
+Each add-on's Ed25519 signature and the hash of every file inside it are checked before it is installed. Opening the Tool Library still checks GitHub for a published add-on list, unless **Never connect to the internet** is on. That is the only time Tool Hub goes online. Add-ons from other authors must be [checked and authorized by an admin](docs/ADDONS.md#third-party-add-ons) before they are published, and show **"Authorized by …"** when installed.
 
 📘 **[Add-on guide](docs/ADDONS.md)** covers installing, building and signing releases, and [writing your own add-on](docs/ADDONS.md#making-your-own-personal-add-on).
 
