@@ -15,10 +15,10 @@
 
 # Tool Hub
 
-**A modular desktop toolbox for files, cleanup, system maintenance, media and PDFs.**
+**A modular desktop toolbox for files, cleanup, system maintenance, media, PDFs, screenshots, fonts and your clipboard.**
 Pick only the tools you need. Everything runs locally on your computer.
 
-[![Version](https://img.shields.io/badge/version-5.0.0-5b8cff)](https://github.com/m72b/Tool-Hub/releases)
+[![Version](https://img.shields.io/badge/version-5.2.0-5b8cff)](https://github.com/m72b/Tool-Hub/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-31c07a)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-98a1b2)](#installation)
 [![Electron](https://img.shields.io/badge/built%20with-Electron-47848f?logo=electron&logoColor=white)](https://www.electronjs.org/)
@@ -50,8 +50,8 @@ Pick only the tools you need. Everything runs locally on your computer.
 ## Features
 
 - **Download only what you need.** Every section is a small add-on you can download, update or remove in one click, and you can hide single tools too.
-- **Private by design.** Files are processed on your computer and never uploaded.
-- **Safe changes.** Deletions go to the Recycle Bin, renames and moves can be undone from the Activity Log, and every write stays inside the folder you picked.
+- **Private by design.** Files, screenshots and clipboard history stay on your computer and are never uploaded.
+- **Safe changes.** Deletions go to the Recycle Bin, renames and moves can be undone from the Activity Log, and file tools only write inside the folder you picked.
 - **Signed and safe.** Every section is a [signed add-on](#add-ons), checked before it is installed. You can also stay fully offline.
 - **Yours to style.** Six themes, three corner styles, favourites, a command palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>), and drag-and-drop folders.
 
@@ -67,8 +67,55 @@ Tool Hub comes with the Starter Tools. Everything else is a section you add from
 | **System Tools** | 22 KB | Installed Apps Manager¹ · Startup Manager¹ · System Information · Drive Health¹ · Network Toolkit · Port & Process Viewer · Hosts & Environment Editor¹ · File Lock Finder¹ · Disk Benchmark |
 | **Media Tools** | 8 KB | Image Converter · Image Resizer · Image Privacy & Watermark |
 | **PDF Tools** | 5.4 MB | See below |
+| **Clipboard Manager** | 12 KB | See below |
+| **Screenshot & Capture** | 15 KB | See below |
+| **Font Manager** | 10 KB | See below |
+| **Event Log Analyzer**¹ | 10 KB | See below |
+| **Device Manager**¹ | 7 KB | See below |
 
 ¹ Windows only. These tools are hidden on other platforms.
+
+### Clipboard Manager
+
+A searchable history of the text, images and file references you copy, with pinned entries, favorites, collections and configurable retention. It is built to be careful with what it sees:
+
+- Nothing is recorded until you start monitoring, and only while Tool Hub is open.
+- The history stays on your PC, encrypted with your Windows, macOS or Linux login. If a system has no secure storage, the tool warns you that the history is not encrypted. Removing the section deletes it.
+- Copies that password managers mark as private are skipped, and you choose which apps are never recorded. Common password managers are on that list from the start.
+
+On Linux, the app list needs `xdotool`, and it does not work under Wayland. The tool tells you when it cannot apply the list.
+
+### Screenshot & Capture
+
+- **Capture** a region, a window or a full screen, with an optional delay. Tool Hub hides itself while capturing.
+- **Scrolling capture:** select an area, scroll it slowly yourself, and press **Done**. The frames are joined into one image, and sticky headers and footers appear only once.
+- **Edit** with arrows, boxes, a pen, highlights, text and blur. Edits are saved as a new copy, so the original stays as it was.
+- **Extract text** with Windows' built-in text recognition, or [Tesseract](https://github.com/tesseract-ocr/tesseract) on macOS and Linux.
+- **History:** copy or export captures as PNG or JPG. Captures are stored on your PC without encryption, and removing the section deletes them.
+
+### Font Manager
+
+- **Preview** your own text at any size, and **compare** up to six families side by side.
+- **Install** TTF, OTF and TTC fonts for your user account, with no administrator rights needed.
+- **Remove** fonts you installed. They go to the Recycle Bin. Fonts that came with the system are protected, because removing one can break apps.
+- **Inspect** a font's version, maker, weight, glyph count, embedding rights and license, and **find duplicates**: identical files, and different files sharing one font name.
+
+### Event Log Analyzer
+
+- **Browse** every Windows event log, and filter by level, time, source, event ID and text.
+- **Recurring problems:** repeats of one error are grouped, even when their numbers and IDs differ.
+- **Error bursts:** errors close together in time are grouped, and any event can show what happened in the main logs around that moment.
+- **Reports** export as HTML, CSV or JSON.
+
+Windows only lets administrators read the Security log, so run Tool Hub as administrator to open it.
+
+### Device Manager
+
+- **USB inventory** with maker, class, vendor and product IDs, and serial numbers.
+- **All hardware** on the PC, filtered by class, with a marker for devices reporting a problem.
+- **Connection history** of USB devices Windows remembers, with the last time each was connected.
+- **Driver details:** version, date, provider, file and signature.
+- **Safely remove** USB drives. Windows refuses if files on the drive are in use, and the tool says so.
 
 ### PDF Tools
 
@@ -93,12 +140,14 @@ Office-to-PDF conversion uses Microsoft Office or [LibreOffice](https://www.libr
 
 Tool Hub also has a **portable mode** that keeps its settings next to the app. Turn it on from the Settings panel.
 
+**Upgrading from version 4?** The tools that used to be built in are now sections. Add the ones you use from the Tool Library, and your settings carry over.
+
 ## Add-ons
 
 Every section is a signed `.thaddon` add-on. Open **Settings → Open Tool Library** to manage them:
 
 - **Download** or **Update** a section in one click. Update all appears when new versions are available.
-- **Remove** a section to delete its tools from your computer. Tool Hub restarts without them.
+- **Remove** a section to delete its tools from your computer, along with any history it kept. Tool Hub restarts without them.
 - **Add add-on…** installs a `.thaddon` file you downloaded from [Releases](https://github.com/m72b/Tool-Hub/releases), which works with no internet connection on the PC.
 - **Never connect to the internet** turns off all online checks.
 
@@ -162,7 +211,8 @@ window → hub.invoke(tool, action, params) → main process → host → tool m
 ## Security
 
 - **No shell injection.** Commands run through `execFile` with argument arrays. User paths reach PowerShell only through environment variables or temporary list files.
-- **File access is opt-in.** Tools can only touch files and folders you picked in a dialog. Destructive actions re-check that the target is inside that folder, including symlink targets.
+- **File access is opt-in.** File tools can only touch files and folders you picked in a dialog. Destructive actions re-check that the target is inside that folder, including symlink targets. Font Manager also reads the system font folders, and writes only to your user font folder.
+- **Sensitive tools are off or limited by default.** Clipboard monitoring stays off until you start it. Screen capture only runs when you ask for it, and safe removal is the only Device Manager action that changes anything.
 - **Recoverable by default.** Deletions use the Recycle Bin unless you explicitly choose permanent deletion.
 - **Locked-down window.** Context isolation, sandboxing and a strict Content Security Policy are on, and navigation and pop-ups are blocked.
 - **Signed add-ons.** Add-ons must carry a valid Ed25519 signature from a trusted key, and every file is hash-checked.

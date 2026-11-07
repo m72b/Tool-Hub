@@ -37,6 +37,36 @@ function createHost(options) {
     }
   }
 
+  // Tools declared with "background": true may keep working while their screen is closed (for example, watching
+  // the clipboard). onStart runs while the tool is switched on, onStop when it is switched off.
+  async function syncBackground() {
+    for (const tool of registry.listTools(platform)) {
+      if (!tool.background || !tool.supported) continue;
+      const on = store.isInstalled(tool.id);
+      if (!on && !loaded.has(tool.id)) continue;
+      try {
+        const mod = loadTool(tool.id);
+        const hook = on ? mod?.onStart : mod?.onStop;
+        if (typeof hook === 'function') await hook({ ...ctx });
+      } catch (err) {
+        console.error(`${tool.name} background work failed: ${err.message}`);
+      }
+    }
+  }
+
+  // Lets a tool stop and delete what it stored before its add-on is removed.
+  async function beforeRemove(addonId) {
+    for (const tool of registry.listTools(platform)) {
+      if (tool.addon !== addonId) continue;
+      try {
+        const mod = loadTool(tool.id);
+        if (typeof mod?.onRemove === 'function') await mod.onRemove({ ...ctx });
+      } catch (err) {
+        console.error(`${tool.name} could not clean up: ${err.message}`);
+      }
+    }
+  }
+
   function catalog() {
     const state = store.load();
     return {
@@ -58,7 +88,7 @@ function createHost(options) {
     };
   }
 
-  return { invoke, catalog, loadTool };
+  return { invoke, catalog, loadTool, syncBackground, beforeRemove };
 }
 
 module.exports = { createHost };

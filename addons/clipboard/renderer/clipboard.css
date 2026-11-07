@@ -1,0 +1,25 @@
+/* Clipboard Manager add-on. */
+.clip-tools .input{max-width:none;flex:1;}
+.clip-tools .clip-collection-filter{flex:0 0 190px;}
+.clip-filters{display:flex;gap:4px;flex-wrap:wrap;}
+.clip-tab{background:transparent;border:1px solid transparent;border-radius:99px;color:var(--text-2);font-size:12px;font-weight:500;padding:6px 12px;cursor:pointer;}
+.clip-tab:hover{background:var(--surface-3);color:var(--text);}
+.clip-tab.active{background:var(--accent);color:var(--accent-fg);}
+.clip-summary{font-size:11px;}
+.clip-list{display:flex;flex-direction:column;gap:var(--s2);}
+.clip-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:var(--s3);align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px var(--s3);}
+.clip-row.pinned{border-color:var(--accent-line);}
+.clip-type{justify-self:start;}
+.clip-main{min-width:0;display:flex;flex-direction:column;gap:4px;}
+.clip-text{font-family:var(--font-mono);font-size:12px;white-space:pre-wrap;word-break:break-word;line-height:18px;max-height:90px;overflow:hidden;user-select:text;}
+.clip-image{display:flex;align-items:center;gap:var(--s3);}
+.clip-image img{max-height:72px;max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);background:#fff;}
+.clip-files{font-size:12px;min-width:0;}
+.clip-meta{font-size:11px;}
+.clip-actions{display:flex;align-items:center;gap:4px;}
+.clip-actions .clip-on{color:var(--accent);border-color:var(--accent-line);}
+.clip-add{width:112px;padding:3px 6px;font-size:11px;}
+.clip-settings{display:flex;gap:var(--s3);flex-wrap:wrap;}
+.clip-collections{display:flex;gap:4px;flex-wrap:wrap;min-height:4px;}
+.clip-collection{gap:4px;}
+.clip-x{background:none;border:0;color:inherit;cursor:pointer;font-size:10px;padding:0 0 0 4px;}

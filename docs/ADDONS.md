@@ -1,6 +1,6 @@
 # Tool Hub add-ons
 
-Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media and PDF). Users download only the sections they want, from the Tool Library, and can remove them again.
+Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media, PDF, Clipboard, Capture, Fonts, Event Log and Devices). Users download only the sections they want, from the Tool Library, and can remove them again.
 
 - [For users: installing an add-on](#installing-an-add-on)
 - [Why add-ons are signed](#why-add-ons-are-signed)
@@ -173,6 +173,18 @@ npm run addon:build -- path\to\my-addon --key C:\keys\my-addon-key.pem
 
 This writes `dist/addons/word-counter-1.0.0.thaddon`. Add it with **Tool Library → Add add-on…**. The install dialog will show it as signed by "My add-ons".
 
+### Working in the background
+
+A tool normally loads when its screen opens. Set `"background": true` on a tool (Tool Hub 5.1.0 or later) to keep it working while the screen is closed. Its module can then export:
+
+| Export | Runs |
+|---|---|
+| `onStart(ctx)` | when Tool Hub starts, and when the tool is switched on |
+| `onStop(ctx)` | when the tool is switched off |
+| `onRemove(ctx)` | just before the add-on is removed; delete anything the tool stored. Works on any tool in Tool Hub 5.2.0 or later, even without `background` |
+
+Keep background work light, and make sure the user can turn it off. Clipboard Manager is a working example.
+
 ## Add-on reference
 
 **Manifest fields**
@@ -183,7 +195,7 @@ This writes `dist/addons/word-counter-1.0.0.thaddon`. Add it with **Tool Library
 | `name`, `version` | yes | `version` is `major.minor.patch`. |
 | `description` | no | Shown in the Tool Library. |
 | `minAppVersion`, `maxAppVersion` | no | Tool Hub versions the add-on supports. |
-| `tools[]` | yes | 1–50 tools: `id`, `name`, optional `module` (path inside the add-on), `category`, `icon` (up to 3 characters), `description`, `platforms` (e.g. `"win32,darwin,linux"`). Tool ids must not clash with built-in tools. |
+| `tools[]` | yes | 1–50 tools: `id`, `name`, optional `module` (path inside the add-on), `category`, `icon` (up to 3 characters), `description`, `platforms` (e.g. `"win32,darwin,linux"`), `background` (see below). Tool ids must not clash with built-in tools. |
 | `scripts[]`, `styles[]` | no | Renderer files, loaded in order when Tool Hub starts. |
 
 **Runtime**

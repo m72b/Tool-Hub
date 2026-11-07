@@ -1,0 +1,25 @@
+/* Screenshot & Capture add-on. */
+.cap-delay{width:130px;}
+.cap-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--s2);}
+.cap-picker[hidden]{display:none;}
+.cap-source,.cap-card{display:flex;flex-direction:column;gap:6px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);color:var(--text);font:inherit;font-size:12px;padding:8px;text-align:left;cursor:pointer;}
+.cap-source:hover,.cap-card:hover{border-color:var(--accent-line);}
+.cap-source img{width:100%;height:100px;object-fit:contain;background:#000;border-radius:var(--r-sm);}
+.cap-history-head{justify-content:space-between;}
+.cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--s2);margin-top:var(--s2);}
+.cap-card img{width:100%;height:120px;object-fit:contain;background:#000;border-radius:var(--r-sm);}
+.cap-card-meta{font-size:11px;}
+.cap-actions{flex-wrap:wrap;}
+.cap-meta{font-size:11px;margin-left:auto;}
+.cap-toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:var(--s2);}
+.cap-tool{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-2);font-size:12px;padding:5px 10px;cursor:pointer;}
+.cap-tool:hover{color:var(--text);}
+.cap-tool.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);}
+.cap-text{flex:1;min-width:180px;max-width:320px;padding:4px 8px;font-size:12px;}
+.cap-text[hidden]{display:none;}
+.cap-color{width:30px;height:28px;padding:0;background:none;border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;}
+.cap-width{width:92px;padding:3px 6px;font-size:12px;}
+.cap-ocr{width:100%;margin-top:var(--s2);font-family:var(--font-mono);font-size:12px;user-select:text;}
+.cap-ocr[hidden]{display:none;}
+.cap-stage{margin-top:var(--s2);overflow:auto;max-height:calc(100vh - 300px);border:1px solid var(--border);border-radius:var(--r-sm);background:#000;}
+.cap-canvas{display:block;max-width:100%;height:auto;cursor:crosshair;touch-action:none;}

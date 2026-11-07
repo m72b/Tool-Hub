@@ -175,6 +175,7 @@ function createAddonManager({ userData, appVersion }) {
           core: false,
           addon: addon.id,
           addonName: addon.name,
+          background: tool.background === true,
           modulePath: tool.module ? path.join(addon.dir, ...tool.module.split('/')) : null,
         });
       }

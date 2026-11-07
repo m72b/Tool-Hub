@@ -1,0 +1,24 @@
+{
+  "id": "fonts",
+  "name": "Font Manager",
+  "version": "1.0.0",
+  "description": "Preview, compare, install and remove fonts, inspect their details and find duplicates.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "font-manager",
+      "name": "Font Manager",
+      "category": "Utilities",
+      "icon": "FM",
+      "description": "Preview and compare fonts, install or remove them, and find duplicates.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/index.js"
+    }
+  ],
+  "styles": [
+    "renderer/fonts.css"
+  ],
+  "scripts": [
+    "renderer/fonts.js"
+  ]
+}

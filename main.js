@@ -216,6 +216,7 @@ if (singleInstanceLock) app.whenReady().then(async () => {
     }
     return;
   }
+  host.syncBackground();
   createWindow();
   app.on('activate', () => {
     // macOS: re-create window when dock icon is clicked and no windows are open
@@ -352,8 +353,8 @@ ipcMain.handle('addons:install', (_event, token) => {
   catch (err) { return { ok: false, error: err.message }; }
 });
 
-ipcMain.handle('addons:remove', (_event, id) => {
-  try { addonManager.remove(String(id || '')); relaunchSoon(); return { ok: true }; }
+ipcMain.handle('addons:remove', async (_event, id) => {
+  try { await host.beforeRemove(String(id || '')); addonManager.remove(String(id || '')); relaunchSoon(); return { ok: true }; }
   catch (err) { return { ok: false, error: err.message }; }
 });
 
@@ -385,16 +386,19 @@ ipcMain.handle('tools:setInstalled', (_event, payload) => {
   const ids = payload && Array.isArray(payload.ids) ? payload.ids : [];
   const complete = payload ? payload.setupComplete : undefined;
   store.setInstalled(ids, complete);
+  host.syncBackground();
   return host.catalog();
 });
 
 ipcMain.handle('tools:install', (_event, id) => {
   store.install(typeof id === 'string' ? id : '');
+  host.syncBackground();
   return host.catalog();
 });
 
 ipcMain.handle('tools:uninstall', (_event, id) => {
   store.uninstall(typeof id === 'string' ? id : '');
+  host.syncBackground();
   return host.catalog();
 });
 

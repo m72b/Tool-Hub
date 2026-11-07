@@ -1,0 +1,24 @@
+{
+  "id": "devices",
+  "name": "Device Manager",
+  "version": "1.0.0",
+  "description": "USB inventory, hardware identification, connection history, driver details and safe removal.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "device-manager",
+      "name": "Device Manager",
+      "category": "System",
+      "icon": "DV",
+      "description": "See your USB devices and hardware, their drivers and connection history, and remove drives safely.",
+      "platforms": "win32",
+      "module": "main/index.js"
+    }
+  ],
+  "styles": [
+    "renderer/devices.css"
+  ],
+  "scripts": [
+    "renderer/devices.js"
+  ]
+}
