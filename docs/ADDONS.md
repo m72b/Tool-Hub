@@ -17,7 +17,7 @@ Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each sec
 
 **From a file (no internet on the PC):**
 
-1. Download the `.thaddon` file from the [GitHub releases](../../releases) page.
+1. Download the `.thaddon` file from the [GitHub releases](https://github.com/m72b/Tool-Hub/releases) page.
 2. In Tool Hub open **Settings ⬡ → Open Tool Library**.
 3. Under **Sections**, click **Add add-on…** and choose the file.
 4. Check the name, version and **Signed by** line in the confirmation, then click **Install add-on**. Tool Hub restarts and the add-on's tools appear in the sidebar.
@@ -66,7 +66,7 @@ Release checklist:
 Add-ons written by anyone other than the Tool Hub maintainer **must be checked and authorized by a Tool Hub admin** before they are published for everyone.
 
 1. Build and test your add-on on your own computer (see [Making your own personal add-on](#making-your-own-personal-add-on)).
-2. [Open an issue](../../issues) asking for review, and attach your add-on's source folder or `.thaddon` file.
+2. [Open an issue](https://github.com/m72b/Tool-Hub/issues) asking for review, and attach your add-on's source folder or `.thaddon` file.
 3. An admin reviews the code and what it can access. If it is approved, the admin signs it with the official release key.
 4. The approved add-on is published, and every Tool Hub install shows **"Authorized by …"** with the admin's name in the install dialog and on the add-on's card.
 

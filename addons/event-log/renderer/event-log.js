@@ -47,6 +47,8 @@
         clear(results);
         if (!res.ok) { view.data = null; status.appendChild(statusNote(res.error, 'error')); return; }
         view.data = res.data;
+        view.around = null;
+        if (view.tab === 'around') view.tab = 'events';
         clear(sources);
         for (const name of [...new Set(res.data.events.map(event => event.provider))].sort()) sources.appendChild(h('option', { value: name }));
         if (res.data.limited) status.appendChild(statusNote(`Showing the newest ${fmtNumber(res.data.events.length)} events. Narrow the filters or raise the limit to see older ones.`, 'info'));

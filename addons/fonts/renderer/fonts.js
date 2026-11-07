@@ -24,7 +24,7 @@
       const sizeLabel = h('span', { class: 'muted fm-size', text: '32 px' });
 
       function applySamples() {
-        for (const node of main.querySelectorAll('.fm-sample')) { node.textContent = view.text; node.style.fontSize = `${view.size}px`; }
+        for (const node of main.querySelectorAll('.fm-sample:not(.fm-unavailable)')) { node.textContent = view.text; node.style.fontSize = `${view.size}px`; }
       }
 
       // Fonts are loaded into the window only when shown, because a PC can hold hundreds.
@@ -47,7 +47,7 @@
       function sample(font) {
         const node = h('div', { class: 'fm-sample', text: view.text });
         node.style.fontSize = `${view.size}px`;
-        loadFace(font).then(name => { if (name) node.style.fontFamily = `"${name}"`; else node.classList.add('fm-unavailable'); });
+        loadFace(font).then(name => { if (name) { node.style.fontFamily = `"${name}"`; return; } node.classList.add('fm-unavailable'); node.style.fontSize = ''; node.textContent = 'This font cannot be previewed here, but apps can still use it.'; });
         return node;
       }
 
