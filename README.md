@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/icon.png" alt="Tool Hub icon" width="120" height="120">
+
 <pre>
                /$$$$$$$$ /$$$$$$  /$$             /$$$$$$$$                  /$$         /$$                 /$$
               |_____ $$//$$__  $$| $$            |__  $$__/                 | $$        | $$                | $$
@@ -16,7 +18,7 @@
 **A modular desktop toolbox for files, cleanup, system maintenance, media and PDFs.**
 Pick only the tools you need. Everything runs locally on your computer.
 
-[![Version](https://img.shields.io/badge/version-4.1.0-5b8cff)](https://github.com/m72b/Tool-Hub/releases)
+[![Version](https://img.shields.io/badge/version-4.1.1-5b8cff)](https://github.com/m72b/Tool-Hub/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-31c07a)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-98a1b2)](#installation)
 [![Electron](https://img.shields.io/badge/built%20with-Electron-47848f?logo=electron&logoColor=white)](https://www.electronjs.org/)

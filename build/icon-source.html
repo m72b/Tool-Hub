@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 700; src: url("FONT_URL") format("woff2"); }
+  html, body { margin: 0; width: 1024px; height: 1024px; background: transparent; overflow: hidden; }
+  .mark {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font: 700 840px/1 "IBM Plex Sans", sans-serif; letter-spacing: -0.06em;
+  }
+  .mark span {
+    display: inline-block; padding: 0 0.058em 0 0.02em;
+    /* Mid-tone blues so the letters stay readable on both light and dark taskbars. */
+    background: linear-gradient(165deg, #63bfff 0%, #3a97ff 45%, #2563eb 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    transform: translate(-5px, -29px);
+  }
+</style>
+</head>
+<body>
+  <div class="mark"><span>TL</span></div>
+</body>
+</html>
