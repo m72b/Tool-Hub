@@ -1,7 +1,8 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');const crypto=require('crypto');
-const T=require(require('path').join(__dirname,'..','src','tools/temp-cleaner'));
-const H=require(require('path').join(__dirname,'..','src','tools/hash-tool'));
-const F=require(require('path').join(__dirname,'..','src','tools/folder-compare'));
+require(require('path').join(__dirname,'sections'));
+const T=require(require('path').join(__dirname,'..','addons','cleanup','main','temp-cleaner'));
+const H=require(require('path').join(__dirname,'..','addons','files','main','hash-tool'));
+const F=require(require('path').join(__dirname,'..','addons','files','main','folder-compare'));
 (async()=>{
 // hash
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'hash-'));

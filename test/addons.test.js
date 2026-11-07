@@ -77,6 +77,7 @@ const tool = registry.getTool('demo-tool');
 assert.ok(tool && tool.addon === 'demo-addon', 'add-on tool registered');
 assert.ok(registry.categories().includes('Demo'));
 const store = createStore(userData, process.platform);
+store.syncAddonTools(['demo-tool']);
 assert.ok(store.isInstalled('demo-tool'), 'add-on tools count as installed');
 const host = createHost({ store, platform: process.platform, userData, addons: manager, trash: async () => {} });
 const catalog = host.catalog();

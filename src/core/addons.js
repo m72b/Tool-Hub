@@ -28,6 +28,18 @@ function normalizePublicKey(input) {
 function createAddonManager({ userData, appVersion }) {
   const addonsDir = path.join(userData, 'addons');
   const keysFile = path.join(userData, 'addon-trusted-keys.json');
+  const removedFile = path.join(userData, 'addons-removed.json');
+
+  // Bundled add-ons the user removed on purpose; they must not reinstall themselves.
+  function removedIds() {
+    const list = readJson(removedFile, []);
+    return Array.isArray(list) ? list.filter(id => typeof id === 'string') : [];
+  }
+
+  function writeRemoved(ids) {
+    fs.mkdirSync(userData, { recursive: true });
+    fs.writeFileSync(removedFile, JSON.stringify(ids));
+  }
 
   function personalKeys() {
     const list = readJson(keysFile, []);
@@ -108,6 +120,7 @@ function createAddonManager({ userData, appVersion }) {
       if (fs.existsSync(target)) fs.renameSync(target, backup);
       fs.renameSync(staging, target);
       fs.rmSync(backup, { recursive: true, force: true });
+      writeRemoved(removedIds().filter(item => item !== id));
     } catch (err) {
       fs.rmSync(staging, { recursive: true, force: true });
       if (!fs.existsSync(target) && fs.existsSync(backup)) fs.renameSync(backup, target);
@@ -121,7 +134,29 @@ function createAddonManager({ userData, appVersion }) {
     const target = path.join(addonsDir, id);
     if (!fs.existsSync(target)) throw new format.AddonError('That add-on is not installed');
     fs.rmSync(target, { recursive: true, force: true });
+    writeRemoved(Array.from(new Set([...removedIds(), id])));
     return list();
+  }
+
+  // Installs or updates add-ons shipped with the app, skipping any the user removed.
+  function installBundled(dir) {
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(name => name.endsWith('.thaddon')); } catch { return []; }
+    const installed = [];
+    for (const name of files) {
+      try {
+        const buffer = fs.readFileSync(path.join(dir, name));
+        const { manifest } = format.open(buffer, trustedKeys());
+        const existing = list().find(item => item.id === manifest.id);
+        if (removedIds().includes(manifest.id)) continue;
+        if (existing && format.compareVersions(existing.version, manifest.version) >= 0) continue;
+        install(buffer);
+        installed.push(manifest.id);
+      } catch (err) {
+        console.error(`Could not install bundled add-on ${name}: ${err.message}`);
+      }
+    }
+    return installed;
   }
 
   // Tool definitions contributed by compatible add-ons, ready for the registry.
@@ -140,7 +175,8 @@ function createAddonManager({ userData, appVersion }) {
           core: false,
           addon: addon.id,
           addonName: addon.name,
-          modulePath: path.join(addon.dir, ...tool.module.split('/')),
+          background: tool.background === true,
+          modulePath: tool.module ? path.join(addon.dir, ...tool.module.split('/')) : null,
         });
       }
     }
@@ -157,7 +193,7 @@ function createAddonManager({ userData, appVersion }) {
     return fs.existsSync(file) ? file : null;
   }
 
-  return { list, inspect, install, remove, tools, trustedKeys, trustKey, untrustKey, resolveFile, addonsDir };
+  return { list, inspect, install, remove, installBundled, tools, trustedKeys, trustKey, untrustKey, resolveFile, addonsDir };
 }
 
 module.exports = { createAddonManager, normalizePublicKey };

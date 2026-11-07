@@ -1,0 +1,22 @@
+/* Device Manager add-on. */
+.dv-tools .input{flex:1;max-width:none;}
+.dv-tools .dv-class{flex:0 0 200px;}
+.dv-class[hidden]{display:none;}
+.dv-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+.dv-tab{background:transparent;border:1px solid transparent;border-radius:99px;color:var(--text-2);font-size:12px;padding:6px 12px;cursor:pointer;}
+.dv-tab:hover{background:var(--surface-3);color:var(--text);}
+.dv-tab.active{background:var(--accent);color:var(--accent-fg);}
+.dv-list{display:flex;flex-direction:column;gap:4px;}
+.dv-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);}
+.dv-head{display:flex;align-items:center;gap:var(--s3);padding:8px 12px;}
+.dv-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--text-2);opacity:.45;}
+.dv-dot.on{background:#3fb950;opacity:1;}
+.dv-dot.bad{background:#ff5c5c;opacity:1;}
+.dv-open{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;background:none;border:0;color:var(--text);font:inherit;text-align:left;cursor:pointer;padding:0;}
+.dv-name{font-size:13px;font-weight:500;}
+.dv-sub,.dv-when{font-size:11px;}
+.dv-when{flex:none;}
+.dv-details{padding:8px 12px 12px 32px;border-top:1px solid var(--border);}
+.dv-details[hidden]{display:none;}
+.dv-pairs{display:grid;grid-template-columns:140px minmax(0,1fr);gap:4px var(--s3);font-size:12px;}
+.dv-value{white-space:pre-wrap;word-break:break-all;user-select:text;}

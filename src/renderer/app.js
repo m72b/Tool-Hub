@@ -182,7 +182,7 @@
   }
 
   function openDroppedFolder(folder) {
-    if (!catalog?.setupComplete) { queuedOpenFolder = folder; return; }
+    if (!catalog?.sectionsChosen) { queuedOpenFolder = folder; return; }
     const target = installedTools().some(tool => tool.id === 'renamer') ? 'renamer' : installedTools()[0]?.id;
     if (target) openTool(target); else openLibrary();
     document.dispatchEvent(new CustomEvent('hub-folder-drop', { detail: folder }));
@@ -191,7 +191,7 @@
   window.hub.onOpenFolder(openDroppedFolder);
 
   function toolCard(tool, selected, onToggle) {
-    const disabled = !tool.supported || tool.core || !!tool.addon;
+    const disabled = !tool.supported;
     const box = h('input', {
       type: 'checkbox',
       checked: selected,
@@ -209,7 +209,6 @@
       h('p', { class: 'tool-card-desc', text: tool.description }),
       h('div', { class: 'tool-card-tags' }, [
         h('span', { class: 'tag', text: tool.category }),
-        tool.core ? h('span', { class: 'tag tag-core', text: 'Always installed' }) : null,
         tool.addon ? h('span', { class: 'tag tag-core', text: `Add-on: ${tool.addonName || tool.addon}` }) : null,
         !tool.supported ? h('span', { class: 'tag tag-warn', text: 'Windows only' }) : null,
       ]),
@@ -219,6 +218,8 @@
   function renderPicker(options) {
     const selection = new Set(catalog.tools.filter(t => t.installed).map(t => t.id));
     const container = h('div', { class: 'picker' });
+    // Built once: it loads the online list, which must not re-run each time a tool is ticked.
+    const sections = window.AddonManagerUI.render(toast);
 
     const onToggle = (id, on) => {
       if (on) selection.add(id);
@@ -242,30 +243,20 @@
             draw();
           },
         }),
-        h('button', {
-          class: 'btn btn-sm', type: 'button', text: 'Only essentials',
-          onclick: () => {
-            selection.clear();
-            for (const t of catalog.tools) if (t.core) selection.add(t.id);
-            draw();
-          },
-        }),
         h('span', { class: 'picker-count', text: `${count} selected` }),
         h('button', {
           class: 'btn btn-accent', type: 'button', text: options.confirmLabel,
           onclick: async () => {
             catalog = await window.hub.tools.setInstalled(Array.from(selection), true);
             toast('Tool selection saved', 'ok');
-            const first = installedTools()[0];
-            const pendingFolder = options.afterSave === 'open' ? (queuedOpenFolder || await window.hub.takeOpenFolder()) : null;
-            if (options.afterSave === 'open' && pendingFolder) openDroppedFolder(pendingFolder);
-            else if (options.afterSave === 'open' && first) openTool(first.id);
-            else openLibrary();
+            openLibrary();
           },
         }),
       ]);
+      container.appendChild(sections);
+      container.appendChild(h('div', { class: 'picker-group-label', text: 'Show in the sidebar' }));
       container.appendChild(actions);
-      if (options.afterSave === 'library' && window.AddonManagerUI) container.appendChild(window.AddonManagerUI.render(toast));
+      if (!catalog.tools.length) container.appendChild(h('div', { class: 'empty-state', text: 'No tools yet. Download a section above.' }));
 
       for (const category of catalog.categories) {
         const tools = catalog.tools.filter(t => t.category === category);
@@ -287,9 +278,8 @@
     clear(contentEl);
     contentEl.appendChild(renderPicker({
       title: 'Tool Library',
-      description: 'Choose which tools are installed. Uninstalled tools are never loaded, so they use no memory.',
+      description: 'Download or remove sections, and choose which of their tools appear in the sidebar.',
       confirmLabel: 'Save changes',
-      afterSave: 'library',
     }));
     contentEl.scrollTop = 0;
   }
@@ -298,12 +288,13 @@
     activeId = null;
     clear(sidebarEl);
     clear(contentEl);
-    contentEl.appendChild(renderPicker({
-      title: 'Welcome — choose your tools',
-      description: 'Pick the tools you want installed. You can add or remove them at any time from the Tool Library.',
-      confirmLabel: 'Install selected',
-      afterSave: 'open',
-    }));
+    contentEl.appendChild(h('div', { class: 'picker' }, [
+      h('div', { class: 'picker-head' }, [
+        h('h1', { class: 'tool-title', text: 'Welcome — choose your sections' }),
+        h('p', { class: 'tool-desc', text: 'Download only what you need. You can add or remove sections at any time from the Tool Library.' }),
+      ]),
+      window.AddonManagerUI.render(toast, { setup: true, legacyTools: catalog.legacyTools, onDone: async updated => { catalog = updated; await enterApp(); } }),
+    ]));
   }
 
   const THEMES = ['midnight', 'graphite', 'nord', 'vector', 'forest', 'daylight'];
@@ -449,10 +440,14 @@
     applyAppearance();
     catalog = await window.hub.tools.catalog();
     await loadAddonAssets(catalog.addons);
-    if (!catalog.setupComplete) {
+    if (!catalog.sectionsChosen) {
       openSetup();
       return;
     }
+    await enterApp();
+  }
+
+  async function enterApp() {
     renderSidebar();
     const pendingFolder = queuedOpenFolder || await window.hub.takeOpenFolder();
     if (pendingFolder) openDroppedFolder(pendingFolder);

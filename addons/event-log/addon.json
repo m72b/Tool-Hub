@@ -1,0 +1,24 @@
+{
+  "id": "event-log",
+  "name": "Event Log Analyzer",
+  "version": "1.0.0",
+  "description": "Browse and filter Windows event logs, group recurring errors and export diagnostic reports.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "event-log-analyzer",
+      "name": "Event Log Analyzer",
+      "category": "System",
+      "icon": "EL",
+      "description": "Browse Windows event logs, group recurring errors and see what failed together.",
+      "platforms": "win32",
+      "module": "main/index.js"
+    }
+  ],
+  "styles": [
+    "renderer/event-log.css"
+  ],
+  "scripts": [
+    "renderer/event-log.js"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "capture",
+  "name": "Screenshot & Capture",
+  "version": "1.0.0",
+  "description": "Region, window, full-screen and scrolling screenshots with annotation, blur, text extraction and history.",
+  "minAppVersion": "5.2.0",
+  "tools": [
+    {
+      "id": "capture-toolkit",
+      "name": "Screenshot & Capture",
+      "category": "Utilities",
+      "icon": "SC",
+      "description": "Take region, window, full-screen and scrolling screenshots, then annotate, blur and read text from them.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/index.js"
+    }
+  ],
+  "styles": [
+    "renderer/capture.css"
+  ],
+  "scripts": [
+    "renderer/editor.js",
+    "renderer/capture.js"
+  ]
+}

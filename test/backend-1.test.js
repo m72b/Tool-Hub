@@ -1,7 +1,8 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
-const D=require(require('path').join(__dirname,'..','src','tools/duplicates'));
-const L=require(require('path').join(__dirname,'..','src','tools/large-files'));
-const A=require(require('path').join(__dirname,'..','src','tools/disk-analyzer'));
+require(require('path').join(__dirname,'sections'));
+const D=require(require('path').join(__dirname,'..','addons','cleanup','main','duplicates'));
+const L=require(require('path').join(__dirname,'..','addons','cleanup','main','large-files'));
+const A=require(require('path').join(__dirname,'..','addons','cleanup','main','disk-analyzer'));
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'dup-'));
 fs.mkdirSync(path.join(tmp,'sub'));
 fs.writeFileSync(path.join(tmp,'a.txt'),'IDENTICAL CONTENT');

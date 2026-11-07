@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
+const sections = require('./sections');
 
 const harness = fs.readFileSync(path.join(__dirname, 'renderer.test.js'), 'utf8');
 const setup = harness.split('const MOCK = {')[0];
@@ -14,9 +15,9 @@ const { createEnv, loadScript, MOCK } = mod.exports;
 const ctxObj = createEnv();
 const context = vm.createContext(ctxObj);
 loadScript(context, 'ui.js');
-for (const f of ['renamer', 'cleanup', 'files', 'system', 'media']) loadScript(context, `views/${f}.js`);
+for (const file of sections.scripts()) vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
 
-const registry = require(path.join(__dirname, '..', 'src', 'core', 'registry'));
+const TOOLS = sections.tools();
 const Hub = ctxObj.Hub;
 
 function collectText(node, out = []) {
@@ -43,7 +44,7 @@ const rejections = [];
 process.on('unhandledRejection', e => rejections.push(e && e.message));
 
 (async () => {
-  for (const tool of registry.TOOLS) {
+  for (const tool of TOOLS) {
     const def = Hub.getView(tool.id);
     const api = {
       invoke: async (action) => {

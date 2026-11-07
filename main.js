@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const { createStore } = require('./src/core/store');
 const { createHost } = require('./src/core/host');
 const { createAddonManager } = require('./src/core/addons');
+const { fetchCatalog, downloadAddon } = require('./src/core/catalog');
 const registry = require('./src/core/registry');
 
 const RENDERER = path.join(__dirname, 'src', 'renderer', 'index.html');
@@ -15,6 +16,8 @@ const approvedFiles = new Set();
 // Files the user named in a Save dialog; they may not exist yet.
 const approvedSaveTargets = new Set();
 const pendingAddonInstalls = new Map();
+// Downloads only come from entries of the verified catalog, never from links the window supplies.
+let catalogEntries = new Map();
 const activeJobs = new Map();
 let addonManager = null;
 
@@ -169,6 +172,7 @@ async function trashItem(target) {
 
 if (singleInstanceLock) app.whenReady().then(async () => {
   addonManager = createAddonManager({ userData: app.getPath('userData'), appVersion: app.getVersion() });
+  addonManager.installBundled(app.isPackaged ? path.join(process.resourcesPath, 'addons') : path.join(__dirname, 'dist', 'bundled'));
   try { registry.setAddonTools(addonManager.tools()); } catch (err) { console.error(`Could not load add-ons: ${err.message}`); }
   protocol.handle(ADDON_SCHEME, request => {
     const url = new URL(request.url);
@@ -177,6 +181,7 @@ if (singleInstanceLock) app.whenReady().then(async () => {
     return net.fetch(pathToFileURL(file).toString());
   });
   store = createStore(app.getPath('userData'), process.platform);
+  store.syncAddonTools(addonManager.tools().map(tool => tool.id));
   host = createHost({
     addons: addonManager,
     store,
@@ -198,7 +203,10 @@ if (singleInstanceLock) app.whenReady().then(async () => {
   if (scheduledIndex >= 0) {
     const ids = String(process.argv[scheduledIndex + 1] || '').split(',').filter(Boolean);
     try {
-      const cleaner = require('./src/tools/temp-cleaner');
+      const modulePath = registry.getTool('temp-cleaner')?.modulePath;
+      if (!modulePath) throw new Error('The Cleanup Tools add-on is not installed');
+      require('./src/core/addon-lib');
+      const cleaner = require(modulePath);
       const result = await cleaner.actions.clean({ ids, permanent: false }, { platform: process.platform, trash: trashItem });
       appendScheduledLog(`moved ${result.removed} to Recycle Bin; skipped ${result.skippedCount}`);
       app.exit(0);
@@ -208,6 +216,7 @@ if (singleInstanceLock) app.whenReady().then(async () => {
     }
     return;
   }
+  host.syncBackground();
   createWindow();
   app.on('activate', () => {
     // macOS: re-create window when dock icon is clicked and no windows are open
@@ -281,7 +290,39 @@ ipcMain.handle('shell:saveFile', async (_event, options) => {
   return path.resolve(result.filePath);
 });
 
-ipcMain.handle('addons:list', () => ({ addons: addonManager.list(), keys: addonManager.trustedKeys() }));
+ipcMain.handle('addons:list', () => ({ addons: addonManager.list(), keys: addonManager.trustedKeys(), offline: store.load().offline }));
+
+ipcMain.handle('addons:catalog', async () => {
+  if (store.load().offline) return { ok: true, offline: true, entries: [] };
+  try {
+    const entries = await fetchCatalog({ fetchImpl: net.fetch.bind(net), builtInKeys: addonManager.trustedKeys().filter(key => key.builtIn) });
+    catalogEntries = new Map(entries.map(entry => [entry.id, entry]));
+    return { ok: true, entries };
+  } catch (err) { return { ok: false, error: err.message }; }
+});
+
+ipcMain.handle('addons:download', async (event, ids) => {
+  const wanted = (Array.isArray(ids) ? ids : []).map(id => catalogEntries.get(id)).filter(Boolean);
+  if (!wanted.length) return { ok: false, error: 'Choose at least one add-on' };
+  const failed = [];
+  let installed = 0;
+  for (const entry of wanted) {
+    try {
+      const buffer = await downloadAddon({
+        fetchImpl: net.fetch.bind(net),
+        entry,
+        onProgress: progress => { if (!event.sender.isDestroyed()) event.sender.send('addons:progress', progress); },
+      });
+      addonManager.install(buffer);
+      installed++;
+    } catch (err) { failed.push({ id: entry.id, name: entry.name, error: err.message }); }
+  }
+  if (installed) relaunchSoon();
+  return { ok: failed.length === 0, installed, failed, restarting: installed > 0 };
+});
+
+ipcMain.handle('addons:setOffline', (_event, offline) => store.setOffline(offline === true).offline);
+ipcMain.handle('addons:finishSetup', () => { store.markSectionsChosen(); return host.catalog(); });
 
 ipcMain.handle('addons:pick', async () => {
   const result = await dialog.showOpenDialog(requireWindow(), {
@@ -312,8 +353,8 @@ ipcMain.handle('addons:install', (_event, token) => {
   catch (err) { return { ok: false, error: err.message }; }
 });
 
-ipcMain.handle('addons:remove', (_event, id) => {
-  try { addonManager.remove(String(id || '')); relaunchSoon(); return { ok: true }; }
+ipcMain.handle('addons:remove', async (_event, id) => {
+  try { await host.beforeRemove(String(id || '')); addonManager.remove(String(id || '')); relaunchSoon(); return { ok: true }; }
   catch (err) { return { ok: false, error: err.message }; }
 });
 
@@ -345,16 +386,19 @@ ipcMain.handle('tools:setInstalled', (_event, payload) => {
   const ids = payload && Array.isArray(payload.ids) ? payload.ids : [];
   const complete = payload ? payload.setupComplete : undefined;
   store.setInstalled(ids, complete);
+  host.syncBackground();
   return host.catalog();
 });
 
 ipcMain.handle('tools:install', (_event, id) => {
   store.install(typeof id === 'string' ? id : '');
+  host.syncBackground();
   return host.catalog();
 });
 
 ipcMain.handle('tools:uninstall', (_event, id) => {
   store.uninstall(typeof id === 'string' ? id : '');
+  host.syncBackground();
   return host.catalog();
 });
 

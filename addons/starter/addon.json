@@ -1,0 +1,39 @@
+{
+  "id": "starter",
+  "name": "Starter Tools",
+  "version": "1.0.0",
+  "description": "Batch Renamer, File Organizer and Text & Data Utilities.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "renamer",
+      "name": "Batch Renamer",
+      "category": "Files",
+      "icon": "RN",
+      "description": "Rename files in bulk with reusable templates, tokens and live previews.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/renamer.js"
+    },
+    {
+      "id": "organizer",
+      "name": "File Organizer",
+      "category": "Files",
+      "icon": "OR",
+      "description": "Sort files into subfolders by pattern, modified year or size range.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/organizer.js"
+    },
+    {
+      "id": "utilities",
+      "name": "Text & Data Utilities",
+      "category": "Utilities",
+      "icon": "UT",
+      "description": "Format JSON, convert Base64, compare text, test regex and create passwords.",
+      "platforms": "win32,darwin,linux"
+    }
+  ],
+  "scripts": [
+    "renderer/renamer.js",
+    "renderer/utilities.js"
+  ]
+}

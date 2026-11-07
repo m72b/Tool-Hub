@@ -1,7 +1,7 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
 const {createStore}=require(require('path').join(__dirname,'..','src','core/store'));
 const {createHost}=require(require('path').join(__dirname,'..','src','core/host'));
-const registry=require(require('path').join(__dirname,'..','src','core/registry'));
+const registry=require(require('path').join(__dirname,'sections')).register();
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'host-'));
 const trashed=[];
 (async()=>{
@@ -33,12 +33,11 @@ r=await lhost.invoke('apps-manager','list',{});
 assert.strictEqual(r.ok,false);assert.match(r.error,/not available on this platform/,'platform gate');
 // catalog shape
 const cat=host.catalog();
-assert.strictEqual(cat.tools.length,registry.TOOLS.length,'catalog tool count');
+assert.strictEqual(cat.tools.length,registry.listTools('win32').length,'catalog tool count');
 assert.ok(cat.tools.find(t=>t.id==='duplicates').installed,'installed flag');
-assert.ok(cat.tools.find(t=>t.id==='renamer').core,'core flag');
 assert.ok(cat.categories.length>0,'categories');
 // lazy loading: uninstalled module never required
-const before=Object.keys(require.cache).filter(k=>k.includes('tools/network')).length;
+const before=Object.keys(require.cache).filter(k=>k.includes('network.js')).length;
 assert.strictEqual(before,0,'network module not loaded when uninstalled');
 fs.rmSync(dir,{recursive:true,force:true});
 console.log('host: all checks passed');

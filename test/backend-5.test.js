@@ -1,8 +1,9 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
+require(require('path').join(__dirname,'sections'));
 const IO=require(require('path').join(__dirname,'..','src','core/imageio'));
-const D=require(require('path').join(__dirname,'..','src','tools/drive-health'));
-const A=require(require('path').join(__dirname,'..','src','tools/apps-manager'));
-const S=require(require('path').join(__dirname,'..','src','tools/startup-manager'));
+const D=require(require('path').join(__dirname,'..','addons','system','main','drive-health'));
+const A=require(require('path').join(__dirname,'..','addons','system','main','apps-manager'));
+const S=require(require('path').join(__dirname,'..','addons','system','main','startup-manager'));
 (async()=>{
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'img-'));
 const png=Buffer.from('89504e470d0a1a0a0000000d49484452','hex');

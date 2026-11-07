@@ -1,6 +1,6 @@
 {
   "name": "tool-hub",
-  "version": "4.1.1",
+  "version": "5.2.0",
   "author": "m72b",
   "description": "Tool Hub - modular file, cleanup and system utilities",
   "main": "main.js",
@@ -11,11 +11,12 @@
     "start": "electron .",
     "toolhub": "node cli.js",
     "test": "node test/all.js",
-    "build-win": "electron-builder --win",
-    "build-mac": "electron-builder --mac",
-    "build-linux": "electron-builder --linux",
+    "build-win": "npm run addons && electron-builder --win",
+    "build-mac": "npm run addons && electron-builder --mac",
+    "build-linux": "npm run addons && electron-builder --linux",
     "addon:keygen": "node scripts/addon-keygen.js",
     "addon:build": "node scripts/build-addon.js",
+    "addons": "node scripts/build-all.js",
     "icon": "electron scripts/render-icon.js"
   },
   "build": {
@@ -48,6 +49,17 @@
       "preload.js",
       "assets/**",
       "src/**"
+    ],
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-US",
+      "ar"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/bundled",
+        "to": "addons"
+      }
     ]
   },
   "devDependencies": {

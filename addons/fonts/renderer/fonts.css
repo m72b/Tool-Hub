@@ -1,0 +1,30 @@
+/* Font Manager add-on. */
+.fm-tools .input{flex:1;max-width:none;}
+.fm-size{min-width:44px;font-size:11px;}
+.fm-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+.fm-tab{background:transparent;border:1px solid transparent;border-radius:99px;color:var(--text-2);font-size:12px;padding:6px 12px;cursor:pointer;}
+.fm-tab:hover{background:var(--surface-3);color:var(--text);}
+.fm-tab.active{background:var(--accent);color:var(--accent-fg);}
+.fm-main{display:flex;flex-direction:column;gap:var(--s2);min-width:0;}
+.fm-browse{display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--s3);align-items:start;}
+.fm-side{display:flex;flex-direction:column;gap:var(--s2);position:sticky;top:0;}
+.fm-list{display:flex;flex-direction:column;max-height:calc(100vh - 380px);min-height:200px;overflow:auto;}
+.fm-count{font-size:11px;padding:2px 8px;}
+.fm-item{background:none;border:0;border-radius:var(--r-sm);color:var(--text-2);font:inherit;font-size:13px;padding:6px 8px;text-align:left;cursor:pointer;}
+.fm-item:hover{background:var(--surface-3);color:var(--text);}
+.fm-item.active{background:var(--accent);color:var(--accent-fg);}
+.fm-detail{min-width:0;display:flex;flex-direction:column;gap:var(--s2);}
+.fm-detail-head{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;}
+.fm-family{font-size:18px;font-weight:600;margin:0;}
+.fm-face{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px var(--s3);min-width:0;}
+.fm-face [hidden]{display:none;}
+.fm-face-head{display:flex;align-items:center;gap:var(--s2);font-size:12px;min-width:0;}
+.fm-face-head .muted{flex:1;min-width:0;}
+.fm-dup-name{flex:0 0 220px;}
+.fm-sample{line-height:1.3;word-break:break-word;overflow:hidden;}
+.fm-sample.fm-unavailable{color:var(--text-2);font-size:12px;}
+.fm-pairs{display:grid;grid-template-columns:130px minmax(0,1fr);gap:4px var(--s3);font-size:12px;}
+.fm-value{white-space:pre-wrap;word-break:break-word;user-select:text;max-height:120px;overflow:auto;}
+.fm-table{display:grid;gap:6px var(--s3);font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s3);}
+.fm-heading{font-size:14px;margin:var(--s2) 0 0;}
+.fm-hint{font-size:12px;margin:0;}

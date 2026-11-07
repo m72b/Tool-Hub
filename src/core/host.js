@@ -1,53 +1,18 @@
-const path = require('path');
 const registry = require('./registry');
 const safe = require('./safe');
-
-const MODULE_FILES = {
-  renamer: 'renamer',
-  organizer: 'organizer',
-  duplicates: 'duplicates',
-  'disk-analyzer': 'disk-analyzer',
-  'large-files': 'large-files',
-  'temp-cleaner': 'temp-cleaner',
-  'apps-manager': 'apps-manager',
-  'startup-manager': 'startup-manager',
-  'system-info': 'system-info',
-  'drive-health': 'drive-health',
-  'folder-compare': 'folder-compare',
-  'hash-tool': 'hash-tool',
-  'image-convert': 'image-convert',
-  'image-resize': 'image-resize',
-  network: 'network',
-  attributes: 'attributes',
-  'file-dates': 'file-dates',
-  'empty-folders': 'empty-folders',
-  'small-files': 'small-files',
-  'tree-export': 'tree-export',
-  'port-process': 'port-process',
-  'system-editor': 'system-editor',
-  'folder-sync': 'advanced-files',
-  'file-type': 'advanced-files',
-  'archive-tool': 'advanced-files',
-  'secure-delete': 'advanced-files',
-  'image-privacy': 'image-privacy',
-  'file-locks': 'advanced-files',
-  'watch-folder': 'watch-folder',
-  'scheduled-cleanup': 'scheduled-cleanup',
-  'disk-benchmark': 'disk-benchmark',
-};
+const addonLib = require('./addon-lib');
 
 function createHost(options) {
   const { store, platform, userData, trash, executable, packaged } = options;
   const loaded = new Map();
   // `lib` exposes the app's validated helpers to add-on modules, which cannot import src/ by path.
-  const ctx = { platform, userData, trash, executable, packaged, lib: { safe, walk: require('./walk') } };
+  const ctx = { platform, userData, trash, executable, packaged, lib: addonLib, invokeTool: (id, action, params) => invoke(id, action, params) };
 
   function loadTool(id) {
     if (loaded.has(id)) return loaded.get(id);
-    const addonModule = registry.getTool(id)?.modulePath;
-    const file = MODULE_FILES[id];
-    if (!file && !addonModule) return null;
-    const mod = require(addonModule || path.join(__dirname, '..', 'tools', file));
+    const modulePath = registry.getTool(id)?.modulePath;
+    if (!modulePath) return null;
+    const mod = require(modulePath);
     loaded.set(id, mod);
     return mod;
   }
@@ -72,11 +37,44 @@ function createHost(options) {
     }
   }
 
+  // Tools declared with "background": true may keep working while their screen is closed (for example, watching
+  // the clipboard). onStart runs while the tool is switched on, onStop when it is switched off.
+  async function syncBackground() {
+    for (const tool of registry.listTools(platform)) {
+      if (!tool.background || !tool.supported) continue;
+      const on = store.isInstalled(tool.id);
+      if (!on && !loaded.has(tool.id)) continue;
+      try {
+        const mod = loadTool(tool.id);
+        const hook = on ? mod?.onStart : mod?.onStop;
+        if (typeof hook === 'function') await hook({ ...ctx });
+      } catch (err) {
+        console.error(`${tool.name} background work failed: ${err.message}`);
+      }
+    }
+  }
+
+  // Lets a tool stop and delete what it stored before its add-on is removed.
+  async function beforeRemove(addonId) {
+    for (const tool of registry.listTools(platform)) {
+      if (tool.addon !== addonId) continue;
+      try {
+        const mod = loadTool(tool.id);
+        if (typeof mod?.onRemove === 'function') await mod.onRemove({ ...ctx });
+      } catch (err) {
+        console.error(`${tool.name} could not clean up: ${err.message}`);
+      }
+    }
+  }
+
   function catalog() {
     const state = store.load();
     return {
       platform,
       setupComplete: state.setupComplete,
+      sectionsChosen: state.sectionsChosen,
+      legacyTools: state.legacy || [],
+      offline: state.offline,
       addons: options.addons ? options.addons.list().map(addon => ({
         id: addon.id, name: addon.name, version: addon.version, description: addon.description || '',
         signer: addon.signer, problem: addon.problem, scripts: addon.scripts || [], styles: addon.styles || [],
@@ -85,12 +83,12 @@ function createHost(options) {
       categories: registry.categories(),
       tools: registry.listTools(platform).map(t => ({
         ...t,
-        installed: !!t.addon || state.installed.includes(t.id),
+        installed: state.installed.includes(t.id),
       })),
     };
   }
 
-  return { invoke, catalog, loadTool };
+  return { invoke, catalog, loadTool, syncBackground, beforeRemove };
 }
 
-module.exports = { createHost, MODULE_FILES };
+module.exports = { createHost };

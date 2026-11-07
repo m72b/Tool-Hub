@@ -1,0 +1,25 @@
+{
+  "id": "clipboard",
+  "name": "Clipboard Manager",
+  "version": "1.0.0",
+  "description": "Searchable history of copied text, images and files, with pins, favorites and collections.",
+  "minAppVersion": "5.1.0",
+  "tools": [
+    {
+      "id": "clipboard-manager",
+      "name": "Clipboard Manager",
+      "category": "Utilities",
+      "icon": "CB",
+      "description": "Keep a searchable history of what you copy, with pins, favorites and collections.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/index.js",
+      "background": true
+    }
+  ],
+  "styles": [
+    "renderer/clipboard.css"
+  ],
+  "scripts": [
+    "renderer/clipboard.js"
+  ]
+}

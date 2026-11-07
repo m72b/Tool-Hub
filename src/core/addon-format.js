@@ -63,7 +63,7 @@ function validateManifest(manifest) {
     if (ids.has(tool.id)) fail(`Duplicate tool id "${tool.id}"`);
     ids.add(tool.id);
     if (typeof tool.name !== 'string' || !tool.name.trim()) fail(`Tool "${tool.id}" needs a name`);
-    if (!safeRelativePath(tool.module || '')) fail(`Tool "${tool.id}" needs a module path inside the add-on`);
+    if (tool.module !== undefined && !safeRelativePath(tool.module)) fail(`Tool "${tool.id}" has a module path outside the add-on`);
   }
   for (const list of [manifest.scripts || [], manifest.styles || []]) {
     if (!Array.isArray(list) || list.some(item => !safeRelativePath(item))) fail('Add-on scripts and styles must be paths inside the add-on');
@@ -151,7 +151,7 @@ function parse(buffer, trustedKeys, requireTrusted) {
     if (entry.size > MAX_FILE_SIZE || entry.offset + entry.compressedSize > payload.length) fail('Add-on file table is invalid');
     files.set(entry.path, entry);
   }
-  for (const tool of manifest.tools) if (!files.has(tool.module)) fail(`Add-on is missing ${tool.module}`);
+  for (const tool of manifest.tools) if (tool.module && !files.has(tool.module)) fail(`Add-on is missing ${tool.module}`);
   for (const rel of [...(manifest.scripts || []), ...(manifest.styles || [])]) if (!files.has(rel)) fail(`Add-on is missing ${rel}`);
 
   const extract = rel => {

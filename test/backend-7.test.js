@@ -1,6 +1,7 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
+require(require('path').join(__dirname,'sections'));
 const src=p=>require(path.join(__dirname,'..','src',p));
-const T=src('tools/tree-export'),R=src('tools/renamer'),B=src('tools/disk-benchmark'),D=src('tools/duplicates'),A=src('tools/attributes'),E=src('tools/empty-folders'),O=src('tools/organizer');
+const T=require(path.join(__dirname,'..','addons','files','main','tree-export')),R=require(path.join(__dirname,'..','addons','starter','main','renamer')),B=require(path.join(__dirname,'..','addons','system','main','disk-benchmark')),D=require(path.join(__dirname,'..','addons','cleanup','main','duplicates')),A=require(path.join(__dirname,'..','addons','files','main','attributes')),E=require(path.join(__dirname,'..','addons','cleanup','main','empty-folders')),O=require(path.join(__dirname,'..','addons','starter','main','organizer'));
 const ctx={platform:process.platform};
 (async()=>{
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'b7-'));
