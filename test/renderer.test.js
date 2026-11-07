@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
+const sections = require('./sections');
 
 const ROOT = path.join(__dirname, '..');
 const RENDERER = path.join(ROOT, 'src', 'renderer');
@@ -180,22 +181,22 @@ MOCK['image-resize'] = MOCK['image-convert'];
 const ctxObj = createEnv();
 const context = vm.createContext(ctxObj);
 loadScript(context, 'ui.js');
-for (const f of ['renamer', 'cleanup', 'files', 'system', 'media', 'extra', 'advanced']) loadScript(context, `views/${f}.js`);
+for (const file of sections.scripts()) vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
 
-const registry = require(path.join(ROOT, 'src', 'core', 'registry'));
+const TOOLS = sections.tools();
 const Hub = ctxObj.Hub;
 
 let failures = 0;
 const missing = [];
-for (const tool of registry.TOOLS) {
+for (const tool of TOOLS) {
   if (!Hub.views.has(tool.id)) missing.push(tool.id);
 }
 assert.strictEqual(missing.length, 0, `Views missing for: ${missing.join(', ')}`);
-console.log(`All ${registry.TOOLS.length} tools have a registered view`);
+console.log(`All ${TOOLS.length} tools have a registered view`);
 
 const calls = [];
 (async () => {
-  for (const tool of registry.TOOLS) {
+  for (const tool of TOOLS) {
     const def = Hub.getView(tool.id);
     const api = {
       invoke: async (action, params) => {

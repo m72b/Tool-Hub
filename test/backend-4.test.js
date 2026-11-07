@@ -1,6 +1,7 @@
 const assert=require('assert');
-const N=require(require('path').join(__dirname,'..','src','tools/network'));
-const S=require(require('path').join(__dirname,'..','src','tools/system-info'));
+require(require('path').join(__dirname,'sections'));
+const N=require(require('path').join(__dirname,'..','addons','system','main','network'));
+const S=require(require('path').join(__dirname,'..','addons','system','main','system-info'));
 (async()=>{
 // arg building never lets host become a flag / injection
 assert.deepStrictEqual(N.buildPingArgs('win32','example.com',4),['-n','4','-w','4000','example.com']);

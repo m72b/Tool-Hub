@@ -1,0 +1,40 @@
+{
+  "id": "media",
+  "name": "Media Tools",
+  "version": "1.0.0",
+  "description": "Convert, resize and protect images.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "image-convert",
+      "name": "Image Converter",
+      "category": "Media",
+      "icon": "IC",
+      "description": "Batch convert images between PNG, JPEG and WebP.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/image-convert.js"
+    },
+    {
+      "id": "image-resize",
+      "name": "Image Resizer",
+      "category": "Media",
+      "icon": "IR",
+      "description": "Batch resize and compress images with quality control.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/image-resize.js"
+    },
+    {
+      "id": "image-privacy",
+      "name": "Image Privacy & Watermark",
+      "category": "Media",
+      "icon": "IP",
+      "description": "Re-encode photos to strip metadata or add a visible watermark.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/image-privacy.js"
+    }
+  ],
+  "scripts": [
+    "renderer/media.js",
+    "renderer/image-privacy.js"
+  ]
+}

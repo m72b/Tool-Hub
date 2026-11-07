@@ -1,6 +1,6 @@
 # Plan: Tool Hub 5.0 — everything is an add-on
 
-**Status:** proposal only, not started. Nothing here is implemented until it is approved.
+**Status:** implemented in version 5.0.0, with these decisions: sections as packs, Starter Tools bundled, one-click downloads from a signed catalog, and English and Arabic language packs. Not done yet: drag-to-reorder sidebar, per-tool defaults, theme add-ons, permission summaries and key rotation (sections 4 and 6). `music-metadata` stayed in the app because the bundled Batch Renamer uses it.
 
 ## Goal
 

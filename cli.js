@@ -1,7 +1,18 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// Tools live in add-ons: use the installed copy, or the source tree when running from the repository.
+function toolModule(addon, file) {
+  require('./src/core/addon-lib');
+  const roots = [path.join(process.env.APPDATA || path.join(os.homedir(), '.config'), 'tool-hub', 'addons'), path.join(os.homedir(), 'Library', 'Application Support', 'tool-hub', 'addons'), path.join(__dirname, 'addons')];
+  const found = roots.map(root => path.join(root, addon, 'main', `${file}.js`)).find(candidate => fs.existsSync(candidate));
+  if (!found) throw new Error(`This command needs the ${addon} add-on. Install it from the Tool Library.`);
+  return require(found);
+}
 
 const commands = {
   hash: async args => {
@@ -9,22 +20,22 @@ const commands = {
     const algo = algoIndex >= 0 ? args[algoIndex + 1] : 'sha256';
     const files = args.filter((item, index) => item !== '--algo' && (algoIndex < 0 || index !== algoIndex + 1));
     if (!files.length) throw new Error('Usage: toolhub hash <file...> [--algo sha256]');
-    return require('./src/tools/hash-tool').actions.hashFiles({ paths: files.map(file => path.resolve(file)), algo });
+    return toolModule('files', 'hash-tool').actions.hashFiles({ paths: files.map(file => path.resolve(file)), algo });
   },
   tree: async args => {
     if (!args[0]) throw new Error('Usage: toolhub tree <folder> [--text]');
-    const result = await require('./src/tools/tree-export').actions.export({ root: path.resolve(args[0]), format: args.includes('--text') ? 'text' : 'markdown' });
+    const result = await toolModule('files', 'tree-export').actions.export({ root: path.resolve(args[0]), format: args.includes('--text') ? 'text' : 'markdown' });
     process.stdout.write(`${result.text}\n`);
     return { root: result.root, entries: result.count, truncated: result.truncated };
   },
   duplicates: async args => {
     if (!args[0]) throw new Error('Usage: toolhub duplicates <folder> [--match size|name|name-size]');
     const matchIndex = args.indexOf('--match');
-    return require('./src/tools/duplicates').actions.scan({ roots: [path.resolve(args[0])], matchBy: matchIndex >= 0 ? args[matchIndex + 1] : 'hash' });
+    return toolModule('cleanup', 'duplicates').actions.scan({ roots: [path.resolve(args[0])], matchBy: matchIndex >= 0 ? args[matchIndex + 1] : 'hash' });
   },
   'file-types': async args => {
     if (!args[0]) throw new Error('Usage: toolhub file-types <folder>');
-    return require('./src/tools/advanced-files').actions.fileTypeScan({ root: path.resolve(args[0]) });
+    return toolModule('files', 'advanced-files').actions.fileTypeScan({ root: path.resolve(args[0]) });
   },
 };
 

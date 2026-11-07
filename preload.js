@@ -12,6 +12,15 @@ contextBridge.exposeInMainWorld('hub', {
   saveFile: options => ipcRenderer.invoke('shell:saveFile', options),
   addons: {
     list: () => ipcRenderer.invoke('addons:list'),
+    catalog: () => ipcRenderer.invoke('addons:catalog'),
+    download: ids => ipcRenderer.invoke('addons:download', ids),
+    onProgress: callback => {
+      const listener = (_event, progress) => callback(progress);
+      ipcRenderer.on('addons:progress', listener);
+      return () => ipcRenderer.removeListener('addons:progress', listener);
+    },
+    setOffline: offline => ipcRenderer.invoke('addons:setOffline', offline),
+    finishSetup: () => ipcRenderer.invoke('addons:finishSetup'),
     pick: () => ipcRenderer.invoke('addons:pick'),
     install: token => ipcRenderer.invoke('addons:install', token),
     remove: id => ipcRenderer.invoke('addons:remove', id),

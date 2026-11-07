@@ -1,0 +1,94 @@
+{
+  "id": "system",
+  "name": "System Tools",
+  "version": "1.0.0",
+  "description": "Inspect and manage apps, startup, drives, network and ports.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "apps-manager",
+      "name": "Installed Apps Manager",
+      "category": "System",
+      "icon": "AM",
+      "description": "List installed applications with sizes and launch their uninstallers.",
+      "platforms": "win32",
+      "module": "main/apps-manager.js"
+    },
+    {
+      "id": "startup-manager",
+      "name": "Startup Manager",
+      "category": "System",
+      "icon": "SM",
+      "description": "Review and disable programs that launch with Windows.",
+      "platforms": "win32",
+      "module": "main/startup-manager.js"
+    },
+    {
+      "id": "system-info",
+      "name": "System Information",
+      "category": "System",
+      "icon": "SI",
+      "description": "CPU, GPU, memory, motherboard, OS and storage details.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/system-info.js"
+    },
+    {
+      "id": "drive-health",
+      "name": "Drive Health",
+      "category": "System",
+      "icon": "DH",
+      "description": "SMART and reliability data for your physical drives.",
+      "platforms": "win32",
+      "module": "main/drive-health.js"
+    },
+    {
+      "id": "network",
+      "name": "Network Toolkit",
+      "category": "System",
+      "icon": "NW",
+      "description": "Ping, DNS lookup, traceroute and local IP information.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/network.js"
+    },
+    {
+      "id": "port-process",
+      "name": "Port & Process Viewer",
+      "category": "System",
+      "icon": "PP",
+      "description": "View listening ports and stop a selected process.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/port-process.js"
+    },
+    {
+      "id": "system-editor",
+      "name": "Hosts & Environment Editor",
+      "category": "System",
+      "icon": "HE",
+      "description": "Edit Windows hosts and user environment settings with backups.",
+      "platforms": "win32",
+      "module": "main/system-editor.js"
+    },
+    {
+      "id": "file-locks",
+      "name": "File Lock Finder",
+      "category": "System",
+      "icon": "FL",
+      "description": "Use Windows Restart Manager to find processes using a file.",
+      "platforms": "win32",
+      "module": "main/file-locks.js"
+    },
+    {
+      "id": "disk-benchmark",
+      "name": "Disk Benchmark",
+      "category": "System",
+      "icon": "DB",
+      "description": "Measure sequential read and write speed using a temporary file.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/disk-benchmark.js"
+    }
+  ],
+  "scripts": [
+    "renderer/system.js",
+    "renderer/system-extra.js"
+  ]
+}

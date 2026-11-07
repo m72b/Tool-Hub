@@ -1,6 +1,7 @@
 const assert=require('assert');const fs=require('fs');const os=require('os');const path=require('path');
-const A=require(require('path').join(__dirname,'..','src','tools/attributes'));
-const D=require(require('path').join(__dirname,'..','src','tools/file-dates'));
+require(require('path').join(__dirname,'sections'));
+const A=require(require('path').join(__dirname,'..','addons','files','main','attributes'));
+const D=require(require('path').join(__dirname,'..','addons','files','main','file-dates'));
 const ctx={platform:process.platform};
 (async()=>{
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'attr-'));

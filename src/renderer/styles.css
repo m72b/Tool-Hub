@@ -315,6 +315,7 @@ textarea.input{resize:vertical;min-height:52px;line-height:1.6;}
 .note-ok{border-color:var(--ok);background:var(--ok-soft);color:var(--text);}
 .note-warn{border-color:var(--warn);background:var(--warn-soft);color:var(--text);}
 .note-error{border-color:var(--danger);background:var(--danger-soft);color:var(--text);}
+.note a{color:var(--accent-hi);}
 
 .empty-state{padding:var(--s6) var(--s4);text-align:center;color:var(--text-3);font-size:12.5px;background:var(--surface);border:1px dashed var(--border-2);border-radius:var(--r-lg);}
 

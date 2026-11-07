@@ -1,0 +1,85 @@
+{
+  "id": "cleanup",
+  "name": "Cleanup Tools",
+  "version": "1.0.0",
+  "description": "Find duplicates and large files, and clear temporary and empty items.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "duplicates",
+      "name": "Duplicate Finder",
+      "category": "Cleanup",
+      "icon": "DF",
+      "description": "Find duplicate files by content hash, size or name and remove them safely.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/duplicates.js"
+    },
+    {
+      "id": "disk-analyzer",
+      "name": "Disk Space Analyzer",
+      "category": "Cleanup",
+      "icon": "DA",
+      "description": "See exactly which folders are consuming your storage.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/disk-analyzer.js"
+    },
+    {
+      "id": "large-files",
+      "name": "Large File Finder",
+      "category": "Cleanup",
+      "icon": "LF",
+      "description": "Quickly locate the biggest files on a drive or folder.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/large-files.js"
+    },
+    {
+      "id": "temp-cleaner",
+      "name": "Temporary File Cleaner",
+      "category": "Cleanup",
+      "icon": "TC",
+      "description": "Preview and clear temp, cache and prefetch files.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/temp-cleaner.js"
+    },
+    {
+      "id": "empty-folders",
+      "name": "Empty Folder Cleaner",
+      "category": "Cleanup",
+      "icon": "EF",
+      "description": "Find and safely remove empty folders.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/empty-folders.js"
+    },
+    {
+      "id": "small-files",
+      "name": "Zero-Byte & Shortcut Finder",
+      "category": "Cleanup",
+      "icon": "ZS",
+      "description": "Find empty files and broken Windows shortcuts.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/small-files.js"
+    },
+    {
+      "id": "secure-delete",
+      "name": "Secure Delete",
+      "category": "Cleanup",
+      "icon": "SD",
+      "description": "Overwrite and delete files, with a warning about SSD limitations.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/secure-delete.js"
+    },
+    {
+      "id": "scheduled-cleanup",
+      "name": "Scheduled Cleanup",
+      "category": "Cleanup",
+      "icon": "SC",
+      "description": "Schedule a weekly temp and browser cache cleanup.",
+      "platforms": "win32",
+      "module": "main/scheduled-cleanup.js"
+    }
+  ],
+  "scripts": [
+    "renderer/cleanup.js",
+    "renderer/cleanup-extra.js"
+  ]
+}

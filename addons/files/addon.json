@@ -1,0 +1,102 @@
+{
+  "id": "files",
+  "name": "File Tools",
+  "version": "1.0.0",
+  "description": "Compare, hash, sync, archive and manage files and folders.",
+  "minAppVersion": "5.0.0",
+  "tools": [
+    {
+      "id": "folder-compare",
+      "name": "Folder Compare",
+      "category": "Files",
+      "icon": "FC",
+      "description": "Compare two folders and identify added, missing and changed files.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/folder-compare.js"
+    },
+    {
+      "id": "hash-tool",
+      "name": "File Hash Generator",
+      "category": "Files",
+      "icon": "HS",
+      "description": "Generate and verify MD5, SHA-1, SHA-256 and SHA-512 checksums.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/hash-tool.js"
+    },
+    {
+      "id": "attributes",
+      "name": "File Attribute Editor",
+      "category": "Files",
+      "icon": "AT",
+      "description": "Bulk set hidden, read-only, system and archive attributes.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/attributes.js"
+    },
+    {
+      "id": "file-dates",
+      "name": "File Date Editor",
+      "category": "Files",
+      "icon": "FD",
+      "description": "Bulk change created, modified and accessed timestamps.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/file-dates.js"
+    },
+    {
+      "id": "tree-export",
+      "name": "Directory Tree Export",
+      "category": "Files",
+      "icon": "DT",
+      "description": "Export a folder structure as text or Markdown.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/tree-export.js"
+    },
+    {
+      "id": "folder-sync",
+      "name": "Folder Sync",
+      "category": "Files",
+      "icon": "FS",
+      "description": "Preview and copy missing or newer files into a mirror folder.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/advanced-files.js"
+    },
+    {
+      "id": "file-type",
+      "name": "File Type Fixer",
+      "category": "Files",
+      "icon": "FT",
+      "description": "Detect common file types from their contents and correct extensions.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/advanced-files.js"
+    },
+    {
+      "id": "archive-tool",
+      "name": "Archive Tool",
+      "category": "Files",
+      "icon": "AR",
+      "description": "Create and extract ZIP archives.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/advanced-files.js"
+    },
+    {
+      "id": "watch-folder",
+      "name": "Watch Folder",
+      "category": "Files",
+      "icon": "WF",
+      "description": "Automatically apply saved Organizer rules while watching a folder.",
+      "platforms": "win32,darwin,linux",
+      "module": "main/watch-folder.js"
+    },
+    {
+      "id": "workflows",
+      "name": "Workflows",
+      "category": "Files",
+      "icon": "WF",
+      "description": "Save and run rename, organize and compress pipelines.",
+      "platforms": "win32,darwin,linux"
+    }
+  ],
+  "scripts": [
+    "renderer/files.js",
+    "renderer/files-extra.js"
+  ]
+}

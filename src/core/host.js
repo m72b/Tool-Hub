@@ -1,53 +1,18 @@
-const path = require('path');
 const registry = require('./registry');
 const safe = require('./safe');
-
-const MODULE_FILES = {
-  renamer: 'renamer',
-  organizer: 'organizer',
-  duplicates: 'duplicates',
-  'disk-analyzer': 'disk-analyzer',
-  'large-files': 'large-files',
-  'temp-cleaner': 'temp-cleaner',
-  'apps-manager': 'apps-manager',
-  'startup-manager': 'startup-manager',
-  'system-info': 'system-info',
-  'drive-health': 'drive-health',
-  'folder-compare': 'folder-compare',
-  'hash-tool': 'hash-tool',
-  'image-convert': 'image-convert',
-  'image-resize': 'image-resize',
-  network: 'network',
-  attributes: 'attributes',
-  'file-dates': 'file-dates',
-  'empty-folders': 'empty-folders',
-  'small-files': 'small-files',
-  'tree-export': 'tree-export',
-  'port-process': 'port-process',
-  'system-editor': 'system-editor',
-  'folder-sync': 'advanced-files',
-  'file-type': 'advanced-files',
-  'archive-tool': 'advanced-files',
-  'secure-delete': 'advanced-files',
-  'image-privacy': 'image-privacy',
-  'file-locks': 'advanced-files',
-  'watch-folder': 'watch-folder',
-  'scheduled-cleanup': 'scheduled-cleanup',
-  'disk-benchmark': 'disk-benchmark',
-};
+const addonLib = require('./addon-lib');
 
 function createHost(options) {
   const { store, platform, userData, trash, executable, packaged } = options;
   const loaded = new Map();
   // `lib` exposes the app's validated helpers to add-on modules, which cannot import src/ by path.
-  const ctx = { platform, userData, trash, executable, packaged, lib: { safe, walk: require('./walk') } };
+  const ctx = { platform, userData, trash, executable, packaged, lib: addonLib, invokeTool: (id, action, params) => invoke(id, action, params) };
 
   function loadTool(id) {
     if (loaded.has(id)) return loaded.get(id);
-    const addonModule = registry.getTool(id)?.modulePath;
-    const file = MODULE_FILES[id];
-    if (!file && !addonModule) return null;
-    const mod = require(addonModule || path.join(__dirname, '..', 'tools', file));
+    const modulePath = registry.getTool(id)?.modulePath;
+    if (!modulePath) return null;
+    const mod = require(modulePath);
     loaded.set(id, mod);
     return mod;
   }
@@ -77,6 +42,9 @@ function createHost(options) {
     return {
       platform,
       setupComplete: state.setupComplete,
+      sectionsChosen: state.sectionsChosen,
+      legacyTools: state.legacy || [],
+      offline: state.offline,
       addons: options.addons ? options.addons.list().map(addon => ({
         id: addon.id, name: addon.name, version: addon.version, description: addon.description || '',
         signer: addon.signer, problem: addon.problem, scripts: addon.scripts || [], styles: addon.styles || [],
@@ -85,7 +53,7 @@ function createHost(options) {
       categories: registry.categories(),
       tools: registry.listTools(platform).map(t => ({
         ...t,
-        installed: !!t.addon || state.installed.includes(t.id),
+        installed: state.installed.includes(t.id),
       })),
     };
   }
@@ -93,4 +61,4 @@ function createHost(options) {
   return { invoke, catalog, loadTool };
 }
 
-module.exports = { createHost, MODULE_FILES };
+module.exports = { createHost };

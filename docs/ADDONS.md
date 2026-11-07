@@ -1,6 +1,6 @@
 # Tool Hub add-ons
 
-Add-ons let Tool Hub stay small: optional feature sets (like **PDF Tools**) ship as separate, signed `.thaddon` files that users download and add only if they want them.
+Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media and PDF). Users download only the sections they want, from the Tool Library, and can remove them again.
 
 - [For users: installing an add-on](#installing-an-add-on)
 - [Why add-ons are signed](#why-add-ons-are-signed)
@@ -13,12 +13,16 @@ Add-ons let Tool Hub stay small: optional feature sets (like **PDF Tools**) ship
 
 ## Installing an add-on
 
-1. Download the `.thaddon` file, for example `pdf-tools-1.0.0.thaddon` from the [GitHub releases](../../releases) page.
+**One click:** open **Settings ⬡ → Open Tool Library** and click **Download** on a section. Tool Hub restarts with its tools in the sidebar. Use **Update** when a newer version appears.
+
+**From a file (no internet on the PC):**
+
+1. Download the `.thaddon` file from the [GitHub releases](../../releases) page.
 2. In Tool Hub open **Settings ⬡ → Open Tool Library**.
-3. Under **Add-ons**, click **Add add-on…** and choose the file.
+3. Under **Sections**, click **Add add-on…** and choose the file.
 4. Check the name, version and **Signed by** line in the confirmation, then click **Install add-on**. Tool Hub restarts and the add-on's tools appear in the sidebar.
 
-To update, add the newer `.thaddon` file the same way; it replaces the installed version. To uninstall, click **Remove** on the add-on's card. Your own files are never touched by installing or removing an add-on.
+A newer `.thaddon` file replaces the installed version. To uninstall, click **Remove** on the section's card; if it came with the app, it will not come back until you add it again. Your own files are never touched by installing or removing an add-on.
 
 Add-ons are stored in Tool Hub's data folder (`%APPDATA%\tool-hub\addons` on Windows), separate from the app, so reinstalling or updating Tool Hub keeps them.
 
@@ -42,8 +46,8 @@ Maintainers only. You need Node.js and the repository's dev dependencies (`npm i
 # one time: create the release key (stored outside the repository)
 npm run addon:keygen
 
-# build and sign the PDF Tools add-on -> dist/addons/pdf-tools-<version>.thaddon
-npm run addon:build -- addons/pdf-tools
+# build and sign every section, plus the signed catalog -> dist/addons/
+npm run addons
 ```
 
 `addon:keygen` writes the private key to `~/.toolhub/addon-signing-key.pem` and prints the public key. The public key goes into [`src/core/addon-trust.json`](../src/core/addon-trust.json) so new app builds trust it. **Never commit the private key**, and back it up somewhere safe — if it is lost, existing installs can no longer verify updates signed with a new key until users update Tool Hub.
@@ -54,8 +58,8 @@ Release checklist:
 
 1. Bump `version` in the add-on's `addon.json` (and `minAppVersion` if it needs a newer app).
 2. `npm test`
-3. `npm run addon:build -- addons/pdf-tools`
-4. Upload `dist/addons/<id>-<version>.thaddon` to the GitHub release next to the app installer.
+3. `npm run build-win` (runs `npm run addons` first; Starter is included in the installer from `dist/bundled`)
+4. Create a GitHub release tagged `v<app version>`, and upload the installer plus **everything in `dist/addons`**, including `catalog.json`. The app reads the catalog from the latest release, so sections appear in the Tool Library as soon as it is published. Mark it as the latest release.
 
 ## Third-party add-ons
 
@@ -121,7 +125,7 @@ my-addon/
 }
 ```
 
-`main/index.js` exports the tool's actions. Each action receives the parameters sent by your screen and a context object; `ctx.lib.safe` gives you Tool Hub's validated file helpers:
+`main/index.js` exports the tool's actions. Each action receives the parameters sent by your screen and a context object. `ctx.lib` gives you Tool Hub's helpers (`safe`, `walk`, `imageio`; also available as `globalThis.toolHubLib`), and `ctx.invokeTool(toolId, action, params)` calls another tool, returning `{ ok, data }` or `{ ok: false, error }`. A tool that runs only in the window can leave out `module`.
 
 ```js
 const fs = require('fs');
@@ -179,7 +183,7 @@ This writes `dist/addons/word-counter-1.0.0.thaddon`. Add it with **Tool Library
 | `name`, `version` | yes | `version` is `major.minor.patch`. |
 | `description` | no | Shown in the Tool Library. |
 | `minAppVersion`, `maxAppVersion` | no | Tool Hub versions the add-on supports. |
-| `tools[]` | yes | 1–50 tools: `id`, `name`, `module` (path inside the add-on), optional `category`, `icon` (up to 3 characters), `description`, `platforms` (e.g. `"win32,darwin,linux"`). Tool ids must not clash with built-in tools. |
+| `tools[]` | yes | 1–50 tools: `id`, `name`, optional `module` (path inside the add-on), `category`, `icon` (up to 3 characters), `description`, `platforms` (e.g. `"win32,darwin,linux"`). Tool ids must not clash with built-in tools. |
 | `scripts[]`, `styles[]` | no | Renderer files, loaded in order when Tool Hub starts. |
 
 **Runtime**
