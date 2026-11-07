@@ -33,7 +33,6 @@ Pick only the tools you need. Everything runs locally on your computer.
 [**Download**](https://github.com/m72b/Tool-Hub/releases) ·
 [Features](#features) ·
 [Add-ons](#add-ons) ·
-[Development](#development) ·
 [Security](#security) ·
 [Report a bug](https://github.com/m72b/Tool-Hub/issues)
 
@@ -49,7 +48,6 @@ Pick only the tools you need. Everything runs locally on your computer.
 - [Installation](#installation)
 - [Add-ons](#add-ons)
 - [Screenshots](#screenshots)
-- [Development](#development)
 - [Project structure](#project-structure)
 - [Security](#security)
 - [License](#license)
@@ -98,29 +96,6 @@ Each add-on's Ed25519 signature and the hash of every file inside it are checked
     <td width="50%"><img src="docs/images/tool-library.png" alt="Tool Library with installed add-ons"><p align="center"><sub>Tool Library: download, update and remove sections</sub></p></td>
   </tr>
 </table>
-
-## Development
-
-**Requirements:** [Node.js](https://nodejs.org/) 20 or newer and npm.
-
-```bash
-git clone https://github.com/m72b/Tool-Hub.git
-cd Tool-Hub
-npm install
-npm start          # run the app
-npm test           # run all test suites
-```
-
-| Command | What it does |
-|---|---|
-| `npm start` | Start Tool Hub from source |
-| `npm test` | Run every test suite |
-| `npm run addons` | Build and sign every section, plus the signed catalog, into `dist/addons/` |
-| `npm run build-win` · `build-mac` · `build-linux` | Build all sections and an installer into `dist/` |
-| `npm run addon:build -- addons/<section>` | Build and sign one section |
-| `npm run icon` | Regenerate the app icon |
-| `npm run addon:keygen` | Create an add-on signing key |
-| `npm run toolhub -- <command>` | Command-line tools: `hash`, `tree`, `duplicates`, `file-types` |
 
 ## Project structure
 
