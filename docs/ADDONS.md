@@ -1,6 +1,6 @@
 # Tool Hub add-ons
 
-Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media, PDF, Clipboard, Capture, Fonts, Event Log and Devices). Users download only the sections they want, from the Tool Library, and can remove them again. [See what each section contains](SECTIONS.md).
+Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each section (Starter, Files, Cleanup, System, Media, PDF, Clipboard, Capture, Fonts, Event Log and Devices). Users add only the sections they want, and can remove them again. [See what each section contains](SECTIONS.md).
 
 - [For users: installing an add-on](#installing-an-add-on)
 - [Why add-ons are signed](#why-add-ons-are-signed)
@@ -13,11 +13,7 @@ Every tool in Tool Hub lives in an add-on: a signed `.thaddon` file for each sec
 
 ## Installing an add-on
 
-**One click:** open **Settings ⬡ → Open Tool Library** and click **Download** on a section. Tool Hub restarts with its tools in the sidebar. Use **Update** when a newer version appears.
-
-**From a file (no internet on the PC):**
-
-1. Download the `.thaddon` file from the [GitHub releases](https://github.com/m72b/Tool-Hub/releases) page.
+1. Download `tool-hub-addons-<version>.zip` from the [GitHub releases](https://github.com/m72b/Tool-Hub/releases) page and unzip it. It holds every section as a `.thaddon` file.
 2. In Tool Hub open **Settings ⬡ → Open Tool Library**.
 3. Under **Sections**, click **Add add-on…** and choose the file.
 4. Check the name, version and **Signed by** line in the confirmation, then click **Install add-on**. Tool Hub restarts and the add-on's tools appear in the sidebar.
@@ -46,7 +42,7 @@ Maintainers only. You need Node.js and the repository's dev dependencies (`npm i
 # one time: create the release key (stored outside the repository)
 npm run addon:keygen
 
-# build and sign every section, plus the signed catalog -> dist/addons/
+# build and sign every section -> dist/addons/
 npm run addons
 ```
 
@@ -59,7 +55,10 @@ Release checklist:
 1. Bump `version` in the add-on's `addon.json` (and `minAppVersion` if it needs a newer app).
 2. `npm test`
 3. `npm run build-win` (runs `npm run addons` first; Starter is included in the installer from `dist/bundled`)
-4. Create a GitHub release tagged `v<app version>`, and upload the installer plus **everything in `dist/addons`**, including `catalog.json`. The app reads the catalog from the latest release, so sections appear in the Tool Library as soon as it is published. Mark it as the latest release.
+4. Zip every `.thaddon` file in `dist/addons` into `tool-hub-addons-<version>.zip`.
+5. Create a GitHub release tagged `v<app version>`, upload the installer and the zip, and mark it as the latest release.
+
+The app can also download sections in one click, but only when the latest release has `catalog.json` and each `.thaddon` file attached on their own. Releases currently ship the zip instead, so the Tool Library shows that no add-on list is published.
 
 ## Third-party add-ons
 

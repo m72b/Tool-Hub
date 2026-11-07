@@ -1,8 +1,8 @@
 # Tool Hub add-ons
 
-Every tool in Tool Hub belongs to a section, and each section is an add-on you can download, update or remove on its own. To install or build add-ons, see the [add-on guide](ADDONS.md).
+Every tool in Tool Hub belongs to a section, and each section is an add-on you can add or remove on its own. Every section is in the add-ons zip on the [Releases](https://github.com/m72b/Tool-Hub/releases) page. To install or build add-ons, see the [add-on guide](ADDONS.md).
 
-Tool Hub comes with the Starter Tools. Everything else is a section you add from the Tool Library:
+Tool Hub comes with the Starter Tools. Everything else is a section you add from the zip, through the Tool Library:
 
 | Section | Size | Tools |
 |---|---|---|
